@@ -1,0 +1,64 @@
+#
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  ca.coins.sjfabric.softjourn.if.ua:
+    image: hyperledger/fabric-ca:x86_64-1.0.0
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.coins.sjfabric.softjourn.if.ua-cert.pem
+      - FABRIC_CA_SERVER_CA_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e5e9b2fb08e4be553f3805bc7170fb3668715305dae211d00bc7057a1125660b_sk
+      - FABRIC_CA_SERVER_TLS_ENABLED=false
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.coins.sjfabric.softjourn.if.ua-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e5e9b2fb08e4be553f3805bc7170fb3668715305dae211d00bc7057a1125660b_sk
+    ports:
+      - "7054:7054"
+    command: sh -c 'fabric-ca-server start -b admin:adminpw -d -c /etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml'
+    volumes:
+      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca_peerCoins
+
+  orderer.sjfabric.softjourn.if.ua:
+    container_name: orderer.sjfabric.softjourn.if.ua
+    image: hyperledger/fabric-orderer:x86_64-1.0.0
+    environment:
+      - ORDERER_GENERAL_LOGLEVEL=debug
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      - ORDERER_GENERAL_GENESISFILE=/etc/hyperledger/configtx/genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/etc/hyperledger/crypto/orderer/msp
+      - ORDERER_GENERAL_TLS_ENABLED=false
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/etc/hyperledger/crypto/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/etc/hyperledger/crypto/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/etc/hyperledger/crypto/orderer/tls/ca.crt, /etc/hyperledger/crypto/peerCoins/tls/ca.crt]
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/orderers
+    command: orderer
+    ports:
+      - 7050:7050
+    volumes:
+        - ./channel:/etc/hyperledger/configtx
+        - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/orderer
+        - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peerCoins
+
+  peer0.coins.sjfabric.softjourn.if.ua:
+    container_name: peer0.coins.sjfabric.softjourn.if.ua
+    extends:
+      file:   base.yaml
+      service: peer-base
+    environment:
+      - CORE_PEER_ID=peer0.coins.sjfabric.softjourn.if.ua
+      - CORE_PEER_LOCALMSPID=CoinsMSP
+      - CORE_PEER_ADDRESS=peer0.coins.sjfabric.softjourn.if.ua:7051
+    ports:
+      - 7051:7051
+      - 7053:7053
+    volumes:
+        - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peer
+    depends_on:
+      - orderer.sjfabric.softjourn.if.ua
