@@ -62,3 +62,34 @@ services:
         - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peer
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
+
+  caapp.sjfabric.softjourn.if.ua:
+    container_name: caapp.sjfabric.softjourn.if.ua
+    hostname: caapp.sjfabric.softjourn.if.ua
+
+    build: ./caapp
+    image: caapp
+    ports:
+      - 3000:3000
+    volumes:
+        - /tmp/fabric-client-kvs_peerCoins:/tmp/fabric-client-kvs_peerCoins
+
+    node.sjfabric.softjourn.if.ua:
+    container_name: node.sjfabric.softjourn.if.ua
+    hostname: node.sjfabric.softjourn.if.ua
+
+    build: ./..
+    image: node
+    ports:
+      - 4000:4000
+    volumes:
+        - /tmp/fabric-client-kvs_peerCoins:/tmp/fabric-client-kvs_peerCoins
+
+  fabricapp.sjfabric.softjourn.if.ua:
+    container_name: fabricapp.sjfabric.softjourn.if.ua
+    hostname: fabricapp.sjfabric.softjourn.if.ua
+
+    build: ./fabricapp
+    image: fabricapp
+    ports:
+      - 4200:4200 
