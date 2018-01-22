@@ -13,7 +13,7 @@ services:
       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
       - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.coins.sjfabric.softjourn.if.ua-cert.pem
       - FABRIC_CA_SERVER_CA_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e5e9b2fb08e4be553f3805bc7170fb3668715305dae211d00bc7057a1125660b_sk
-      - FABRIC_CA_SERVER_TLS_ENABLED=false
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
       - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.coins.sjfabric.softjourn.if.ua-cert.pem
       - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e5e9b2fb08e4be553f3805bc7170fb3668715305dae211d00bc7057a1125660b_sk
     ports:
@@ -33,7 +33,7 @@ services:
       - ORDERER_GENERAL_GENESISFILE=/etc/hyperledger/configtx/genesis.block
       - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
       - ORDERER_GENERAL_LOCALMSPDIR=/etc/hyperledger/crypto/orderer/msp
-      - ORDERER_GENERAL_TLS_ENABLED=false
+      - ORDERER_GENERAL_TLS_ENABLED=true
       - ORDERER_GENERAL_TLS_PRIVATEKEY=/etc/hyperledger/crypto/orderer/tls/server.key
       - ORDERER_GENERAL_TLS_CERTIFICATE=/etc/hyperledger/crypto/orderer/tls/server.crt
       - ORDERER_GENERAL_TLS_ROOTCAS=[/etc/hyperledger/crypto/orderer/tls/ca.crt, /etc/hyperledger/crypto/peerCoins/tls/ca.crt]
@@ -74,7 +74,7 @@ services:
     volumes:
         - /tmp/fabric-client-kvs_peerCoins:/tmp/fabric-client-kvs_peerCoins
 
-    node.sjfabric.softjourn.if.ua:
+  node.sjfabric.softjourn.if.ua:
     container_name: node.sjfabric.softjourn.if.ua
     hostname: node.sjfabric.softjourn.if.ua
 

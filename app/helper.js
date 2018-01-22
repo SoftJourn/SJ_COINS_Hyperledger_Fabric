@@ -128,7 +128,7 @@ function newRemotes(urls, forPeers, userOrg) {
 							// found a peer matching the subject url
 							if (forPeers) {
 								let data = fs.readFileSync(path.join(__dirname, org[prop]['tls_cacerts']));
-								targets.push(client.newPeer('grpc://' + peerUrl, {
+								targets.push(client.newPeer('grpcs://' + peerUrl, {
 									pem: Buffer.from(data).toString(),
 									'ssl-target-name-override': org[prop]['server-hostname']
 								}));
@@ -336,7 +336,7 @@ var getLogger = function(moduleName) {
 
 var getPeerAddressByName = function(org, peer) {
 	var address = ORGS[org][peer].requests;
-	return address.split('grpc://')[1];
+	return address.split('grpcs://')[1];
 };
 
 exports.getChannelForOrg = getChannelForOrg;

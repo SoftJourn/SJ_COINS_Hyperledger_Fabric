@@ -1,17 +1,17 @@
 {
 	"network-config": {
 		"orderer": {
-			"url": "grpc://orderer.sjfabric.softjourn.if.ua:7050",
+			"url": "grpcs://orderer.sjfabric.softjourn.if.ua:7050",
 			"server-hostname": "orderer.sjfabric.softjourn.if.ua",
 			"tls_cacerts": "../artifacts/channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls/ca.crt"
 		},
 		"coins": {
 			"name": "peerCoins1",
 			"mspid": "CoinsMSP",
-			"ca": "http://ca.coins.sjfabric.softjourn.if.ua:7054",
+			"ca": "https://ca.coins.sjfabric.softjourn.if.ua:7054",
 			"peer1": {
-				"requests": "grpc://peer0.coins.sjfabric.softjourn.if.ua:7051",
-				"events": "grpc://peer0.coins.sjfabric.softjourn.if.ua:7053",
+				"requests": "grpcs://peer0.coins.sjfabric.softjourn.if.ua:7051",
+				"events": "grpcs://peer0.coins.sjfabric.softjourn.if.ua:7053",
 				"server-hostname": "peer0.coins.sjfabric.softjourn.if.ua",
 				"tls_cacerts": "../artifacts/channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/tls/ca.crt"
 			},
