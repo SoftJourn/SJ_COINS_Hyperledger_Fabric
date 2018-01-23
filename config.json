@@ -4,7 +4,7 @@
    "jwt_expiretime": "36000",
    "channelName":"mychannel",
    "GOPATH":"../artifacts",
-   "keyValueStore":"/tmp/fabric-client-kvs",
+   "keyValueStore":"/app_data/fabric-client-kvs",
    "eventWaitTime":"30000",
    "orderer":"grpcs://orderer.sjfabric.softjourn.if.ua:7050",
    "users":[

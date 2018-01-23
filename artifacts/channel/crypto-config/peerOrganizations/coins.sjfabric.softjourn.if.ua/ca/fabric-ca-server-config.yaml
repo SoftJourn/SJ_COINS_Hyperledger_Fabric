@@ -132,7 +132,7 @@ registry:
 #############################################################################
 db:
   type: sqlite3
-  datasource: fabric-ca-server.db
+  datasource: /app_data/fabric-ca-server.db
   tls:
       enabled: false
       certfiles:
@@ -238,7 +238,7 @@ bccsp:
         security: 256
         filekeystore:
             # The directory used for the software file-based keystore
-            keystore: msp/keystore
+            keystore: /app_data/msp/keystore
 
 #############################################################################
 # Multi CA section

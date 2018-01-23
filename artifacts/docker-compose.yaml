@@ -21,6 +21,7 @@ services:
     command: sh -c 'fabric-ca-server start -b admin:adminpw -d -c /etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml'
     volumes:
       - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
+      - /sjfabric_volumes/ca:/app_data
     container_name: ca_peerCoins
 
   orderer.sjfabric.softjourn.if.ua:
@@ -45,6 +46,7 @@ services:
         - ./channel:/etc/hyperledger/configtx
         - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/orderer
         - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peerCoins
+        - /sjfabric_volumes/orderer:/var/hyperledger/production
 
   peer0.coins.sjfabric.softjourn.if.ua:
     container_name: peer0.coins.sjfabric.softjourn.if.ua
@@ -60,6 +62,7 @@ services:
       - 7053:7053
     volumes:
         - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peer
+        - /sjfabric_volumes/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
 
@@ -72,7 +75,7 @@ services:
     ports:
       - 3000:3000
     volumes:
-        - /tmp/fabric-client-kvs_peerCoins:/tmp/fabric-client-kvs_peerCoins
+      - /sjfabric_volumes/node_client/fabric-client-kvs_peerCoins1:/app_data
 
   node.sjfabric.softjourn.if.ua:
     container_name: node.sjfabric.softjourn.if.ua
@@ -83,7 +86,7 @@ services:
     ports:
       - 4000:4000
     volumes:
-        - /tmp/fabric-client-kvs_peerCoins:/tmp/fabric-client-kvs_peerCoins
+        - /sjfabric_volumes/node_client:/app_data
 
   fabricapp.sjfabric.softjourn.if.ua:
     container_name: fabricapp.sjfabric.softjourn.if.ua

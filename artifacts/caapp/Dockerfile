@@ -53,7 +53,7 @@ WORKDIR $GOPATH
 ADD . /go/src/github.com/SoftJourn/
 RUN go get -v github.com/SoftJourn/CAApp
 
-RUN mkdir -p "/tmp/fabric-client-kvs_peerCoins" && chmod -R 777 "/tmp" && chmod -R 777 "/tmp/fabric-client-kvs_peerCoins"
+RUN mkdir -p "/app_data/fabric-client-kvs_peerCoins1" && chmod -R 777 "/app_data" && chmod -R 777 "/app_data/fabric-client-kvs_peerCoins1"
 
 RUN mkdir -p "$GOPATH/src/github.com/SoftJourn/CAApp/bin" && chmod -R 777 "$GOPATH"
 WORKDIR $GOPATH/src/github.com/SoftJourn/CAApp
