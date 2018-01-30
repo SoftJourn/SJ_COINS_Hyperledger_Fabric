@@ -1,11 +1,10 @@
 {
   "name": "sjfabric",
   "version": "1.0.0",
-  "description": "sjfabric node.js client",
+  "description": "sjfabric application",
   "main": "app/app.js",
   "keywords": [
-    "fabric-client ",
-    "node client",
+    "fabric-client app",
     "v1.0 fabric nodesdk"
   ],
   "engines": {
@@ -25,6 +24,6 @@
     "fabric-client": "^1.0.0",
     "fs-extra": "^2.0.0",
     "jsonwebtoken": "^7.3.0",
-    "log4js": "^0.6.38"
+    "log4js": "^2.5.2"
   }
 }

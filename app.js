@@ -13,9 +13,26 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+
 'use strict';
+var config = require('./config.json');
+
 var log4js = require('log4js');
-var logger = log4js.getLogger('SampleWebApp');
+
+log4js.configure({
+    appenders: {
+        out: { type: 'console' },
+        app: { type: 'file', filename: config.logFilePath }
+    },
+    categories: {
+        default: { appenders: [ 'out', 'app' ], level: 'debug' },
+        client: { appenders: [ 'out', 'app' ], level: config.logLevel }
+    }
+});
+
+var logger = log4js.getLogger('client');
+
 var express = require('express');
 var session = require('express-session');
 var cookieParser = require('cookie-parser');
@@ -27,7 +44,6 @@ var expressJWT = require('express-jwt');
 var jwt = require('jsonwebtoken');
 var bearerToken = require('express-bearer-token');
 var cors = require('cors');
-var config = require('./config.json');
 var helper = require('./app/helper.js');
 var channels = require('./app/create-channel.js');
 var join = require('./app/join-channel.js');
@@ -319,7 +335,7 @@ app.post('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) 
 	logger.debug('fcn  : ' + fcn);
 	logger.debug('args  : ' + args);
 
-    logger.debug('>>> Request  : ' + req);
+    //logger.debug('>>> Request  : ' + JSON.stringify(req.body));
 
 	if (!peers || peers.length == 0) {
 		res.json(getErrorMessage('\'peers\''));
@@ -347,7 +363,7 @@ app.post('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) 
 		res.send(message);
 	});
 
-    logger.debug('<<< Response : ' + res);
+    //logger.debug('<<< Response : ' + JSON.stringify(res));
 
 });
 // Query on chaincode on target peers

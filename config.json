@@ -6,6 +6,8 @@
    "GOPATH":"../artifacts",
    "keyValueStore":"/app_data/fabric-client-kvs",
    "eventWaitTime":"30000",
+   "logLevel": "debug",
+   "logFilePath": "/app_data/logs/fabric-client.log",
    "orderer":"grpcs://orderer.sjfabric.softjourn.if.ua:7050",
    "users":[
       {
