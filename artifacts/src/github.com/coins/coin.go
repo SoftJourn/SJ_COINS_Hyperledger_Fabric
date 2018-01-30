@@ -16,7 +16,14 @@ import (
 var logger *shim.ChaincodeLogger
 
 type CoinChain struct {
+
 }
+
+type TransferRequest struct{
+	UserId string `json:"userId"`
+	Amount uint `json:"amount"`
+}
+
 
 var currencyName string
 
@@ -109,10 +116,14 @@ func (t *CoinChain) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.mint(stub, args)
 	} else if function == "transfer" {
 		return t.transfer(stub, args)
+	} else if function == "batchTransfer" {
+		return t.batchTransfer(stub, args)
 	} else if function == "transferFrom" {
 		return t.transferFrom(stub, args)
 	} else if function == "balanceOf" {
 		return t.balanceOf(stub, args)
+	} else if function == "batchBalanceOf" {
+		return t.batchBalanceOf(stub, args)
 	} else if function == "distribute" {
 		return t.distribute(stub, args)
 	}
@@ -176,6 +187,64 @@ func (t *CoinChain) transfer(stub shim.ChaincodeStubInterface, args []string) pb
 	t.saveMap(stub, balancesKey, balancesMap)
 
 	return shim.Success([]byte(strconv.FormatUint(uint64(balancesMap[receiverAccount]), 10)))
+}
+
+
+
+func (t *CoinChain) batchTransfer(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	transferRequests := []TransferRequest{}
+	err := json.Unmarshal([]byte(args[0]), &transferRequests)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	logger.Info(transferRequests)
+
+	var total uint = 0
+
+	for _, tr := range transferRequests {
+		total += tr.Amount
+	}
+
+	currentUserId, err := getCurrentUserId(stub)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	currentUserAccount, err := stub.CreateCompositeKey(userAccountType, []string{currentUserId})
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	logger.Info("currentUserAccount ", currentUserAccount)
+
+	balancesMap := t.getMap(stub, balancesKey)
+
+	currentUserBalance := balancesMap[currentUserAccount]
+
+	logger.Info("currentUserBalance ", currentUserBalance)
+	if total > currentUserBalance {
+		return shim.Error("Not enough money")
+	}
+
+	for _, tr := range transferRequests {
+		receiverAccount, err := stub.CreateCompositeKey(userAccountType, []string{tr.UserId})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		balancesMap[currentUserAccount] -= tr.Amount
+		balancesMap[receiverAccount] += tr.Amount
+	}
+	t.saveMap(stub, balancesKey, balancesMap)
+
+	return shim.Success(nil)
 }
 
 func (t *CoinChain) transferFrom(stub shim.ChaincodeStubInterface, args []string) pb.Response {
@@ -444,6 +513,46 @@ func (t *CoinChain) balanceOf(stub shim.ChaincodeStubInterface, args []string) p
 	balancesMap := t.getMap(stub, balancesKey)
 	return shim.Success([]byte(fmt.Sprintf("%d", balancesMap[account])))
 }
+
+func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+
+	/* args
+		0 - array of the user emails
+	*/
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	var emails []string
+	var balances = make(map[string]uint)
+
+	err := json.Unmarshal([]byte(args[0]), &emails)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	balancesMap := t.getMap(stub, balancesKey)
+
+	for _, email := range emails {
+		account, err := stub.CreateCompositeKey(userAccountType, []string{email})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		logger.Info("account ", account)
+		balances[email] = balancesMap[account]
+	}
+
+	result, err := json.Marshal(balances)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(result)
+}
+
 
 func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
 
