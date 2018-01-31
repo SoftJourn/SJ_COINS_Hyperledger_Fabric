@@ -380,7 +380,7 @@ app.post('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) 
 
 	invoke.invokeChaincode(peers, channelName, chaincodeName, fcn, args, req.username, req.orgname)
 	.then(function(message) {
-        logger.debug('<<< Response : ' + JSON.stringify(res));
+        logger.debug('<<< Response : ' + JSON.stringify(message));
 		res.send(message);
 	});
 });
