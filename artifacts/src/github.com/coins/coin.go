@@ -24,6 +24,11 @@ type TransferRequest struct{
 	Amount uint `json:"amount"`
 }
 
+type UserBalance struct {
+	UserId string `json:"userId"`
+	Balance uint `json:"balance"`
+}
+
 
 var currencyName string
 
@@ -527,6 +532,8 @@ func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []stri
 	var emails []string
 	var balances = make(map[string]uint)
 
+	balancesResponse := []*UserBalance{}
+
 	err := json.Unmarshal([]byte(args[0]), &emails)
 
 	if err != nil {
@@ -542,9 +549,13 @@ func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []stri
 		}
 		logger.Info("account ", account)
 		balances[email] = balancesMap[account]
+		balance := new(UserBalance)
+		balance.UserId = email
+		balance.Balance = balancesMap[account]
+		balancesResponse = append(balancesResponse, balance)
 	}
 
-	result, err := json.Marshal(balances)
+	result, err := json.Marshal(balancesResponse)
 
 	if err != nil {
 		return shim.Error(err.Error())

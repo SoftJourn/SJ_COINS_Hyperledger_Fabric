@@ -84,6 +84,7 @@ app.use(function(req, res, next) {
 	var token = req.token;
 	jwt.verify(token, app.get('secret'), function(err, decoded) {
 		if (err) {
+		    res.statusCode = 401;
 			res.send({
 				success: false,
 				message: 'Failed to authenticate token. Make sure to include the ' +
@@ -116,6 +117,7 @@ function getErrorMessage(field) {
 		success: false,
 		message: field + ' field is missing or Invalid in the request'
 	};
+	logger.error(response.message);
 	return response;
 }
 
@@ -131,10 +133,12 @@ app.post('/users', function(req, res) {
 	logger.debug('Org name  : ' + orgName);
     logger.debug('>>> Request  : ' + req);
 	if (!username) {
-		res.json(getErrorMessage('\'username\''));
+	    res.statusCode = 400;
+        res.json(getErrorMessage('\'username\''));
 		return;
 	}
 	if (!orgName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'orgName\''));
 		return;
 	}
@@ -156,6 +160,7 @@ app.post('/users', function(req, res) {
 	});
     logger.debug('<<< Response  : ' + res);
 });
+
 // Create Channel
 app.post('/channels', function(req, res) {
 	logger.info('<<<<<<<<<<<<<<<<< C R E A T E  C H A N N E L >>>>>>>>>>>>>>>>>');
@@ -165,10 +170,12 @@ app.post('/channels', function(req, res) {
 	logger.debug('Channel name : ' + channelName);
 	logger.debug('channelConfigPath : ' + channelConfigPath); //../artifacts/channel/mychannel.tx
 	if (!channelName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelName\''));
 		return;
 	}
 	if (!channelConfigPath) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelConfigPath\''));
 		return;
 	}
@@ -178,6 +185,7 @@ app.post('/channels', function(req, res) {
 		res.send(message);
 	});
 });
+
 // Join Channel
 app.post('/channels/:channelName/peers', function(req, res) {
 	logger.info('<<<<<<<<<<<<<<<<< J O I N  C H A N N E L >>>>>>>>>>>>>>>>>');
@@ -186,10 +194,12 @@ app.post('/channels/:channelName/peers', function(req, res) {
 	logger.debug('channelName : ' + channelName);
 	logger.debug('peers : ' + peers);
 	if (!channelName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelName\''));
 		return;
 	}
 	if (!peers || peers.length == 0) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'peers\''));
 		return;
 	}
@@ -199,6 +209,7 @@ app.post('/channels/:channelName/peers', function(req, res) {
 		res.send(message);
 	});
 });
+
 // Install chaincode on target peers
 app.post('/chaincodes', function(req, res) {
 	logger.debug('==================== INSTALL CHAINCODE ==================');
@@ -211,18 +222,22 @@ app.post('/chaincodes', function(req, res) {
 	logger.debug('chaincodePath  : ' + chaincodePath);
 	logger.debug('chaincodeVersion  : ' + chaincodeVersion);
 	if (!peers || peers.length == 0) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'peers\''));
 		return;
 	}
 	if (!chaincodeName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeName\''));
 		return;
 	}
 	if (!chaincodePath) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodePath\''));
 		return;
 	}
 	if (!chaincodeVersion) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeVersion\''));
 		return;
 	}
@@ -232,6 +247,7 @@ app.post('/chaincodes', function(req, res) {
 		res.send(message);
 	});
 });
+
 // Instantiate chaincode on target peers
 app.post('/channels/:channelName/chaincodes', function(req, res) {
 	logger.debug('==================== INSTANTIATE CHAINCODE ==================');
@@ -246,22 +262,27 @@ app.post('/channels/:channelName/chaincodes', function(req, res) {
 	logger.debug('functionName  : ' + functionName);
 	logger.debug('args  : ' + args);
 	if (!chaincodeName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeName\''));
 		return;
 	}
 	if (!chaincodeVersion) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeVersion\''));
 		return;
 	}
 	if (!channelName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelName\''));
 		return;
 	}
 	if (!functionName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'functionName\''));
 		return;
 	}
 	if (!args) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'args\''));
 		return;
 	}
@@ -270,10 +291,6 @@ app.post('/channels/:channelName/chaincodes', function(req, res) {
 		res.send(message);
 	});
 });
-
-
-
-
 
 // Instantiate chaincode on target peers
 app.post('/channels/:channelName/chaincodesUpgrade', function(req, res) {
@@ -289,22 +306,27 @@ app.post('/channels/:channelName/chaincodesUpgrade', function(req, res) {
 	logger.debug('functionName  : ' + functionName);
 	logger.debug('args  : ' + args);
 	if (!chaincodeName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeName\''));
 		return;
 	}
 	if (!chaincodeVersion) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeVersion\''));
 		return;
 	}
 	if (!channelName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelName\''));
 		return;
 	}
 	if (!functionName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'functionName\''));
 		return;
 	}
 	if (!args) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'args\''));
 		return;
 	}
@@ -313,13 +335,6 @@ app.post('/channels/:channelName/chaincodesUpgrade', function(req, res) {
 		res.send(message);
 	});
 });
-
-
-
-
-
-
-
 
 
 // Invoke transaction on chaincode on target peers
@@ -335,37 +350,41 @@ app.post('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) 
 	logger.debug('fcn  : ' + fcn);
 	logger.debug('args  : ' + args);
 
-    //logger.debug('>>> Request  : ' + JSON.stringify(req.body));
+    logger.debug('>>> Request  : ' + JSON.stringify(req.body));
 
 	if (!peers || peers.length == 0) {
-		res.json(getErrorMessage('\'peers\''));
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'peers\''));
 		return;
 	}
 	if (!chaincodeName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeName\''));
 		return;
 	}
 	if (!channelName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelName\''));
 		return;
 	}
 	if (!fcn) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'fcn\''));
 		return;
 	}
 	if (!args) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'args\''));
 		return;
 	}
 
 	invoke.invokeChaincode(peers, channelName, chaincodeName, fcn, args, req.username, req.orgname)
 	.then(function(message) {
+        logger.debug('<<< Response : ' + JSON.stringify(res));
 		res.send(message);
 	});
-
-    //logger.debug('<<< Response : ' + JSON.stringify(res));
-
 });
+
 // Query on chaincode on target peers
 app.get('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) {
 	logger.debug('==================== QUERY BY CHAINCODE ==================');
@@ -381,18 +400,22 @@ app.get('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) {
 	logger.debug('args : ' + args);
 
 	if (!chaincodeName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'chaincodeName\''));
 		return;
 	}
 	if (!channelName) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'channelName\''));
 		return;
 	}
 	if (!fcn) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'fcn\''));
 		return;
 	}
 	if (!args) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'args\''));
 		return;
 	}
@@ -405,6 +428,7 @@ app.get('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) {
 		res.send(message);
 	});
 });
+
 //  Query Get Block by BlockNumber
 app.get('/channels/:channelName/blocks/:blockId', function(req, res) {
 	logger.debug('==================== GET BLOCK BY NUMBER ==================');
@@ -414,6 +438,7 @@ app.get('/channels/:channelName/blocks/:blockId', function(req, res) {
 	logger.debug('BlockID : ' + blockId);
 	logger.debug('Peer : ' + peer);
 	if (!blockId) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'blockId\''));
 		return;
 	}
@@ -423,6 +448,7 @@ app.get('/channels/:channelName/blocks/:blockId', function(req, res) {
 			res.send(message);
 		});
 });
+
 // Query Get Transaction by Transaction ID
 app.get('/channels/:channelName/transactions/:trxnId', function(req, res) {
 	logger.debug(
@@ -432,6 +458,7 @@ app.get('/channels/:channelName/transactions/:trxnId', function(req, res) {
 	let trxnId = req.params.trxnId;
 	let peer = req.query.peer;
 	if (!trxnId) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'trxnId\''));
 		return;
 	}
@@ -441,6 +468,7 @@ app.get('/channels/:channelName/transactions/:trxnId', function(req, res) {
 			res.send(message);
 		});
 });
+
 // Query Get Block by Hash
 app.get('/channels/:channelName/blocks', function(req, res) {
 	logger.debug('================ GET BLOCK BY HASH ======================');
@@ -448,6 +476,7 @@ app.get('/channels/:channelName/blocks', function(req, res) {
 	let hash = req.query.hash;
 	let peer = req.query.peer;
 	if (!hash) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'hash\''));
 		return;
 	}
@@ -457,6 +486,7 @@ app.get('/channels/:channelName/blocks', function(req, res) {
 			res.send(message);
 		});
 });
+
 //Query for Channel Information
 app.get('/channels/:channelName', function(req, res) {
 	logger.debug(
@@ -469,6 +499,7 @@ app.get('/channels/:channelName', function(req, res) {
 			res.send(message);
 		});
 });
+
 // Query to fetch all Installed/instantiated chaincodes
 app.get('/chaincodes', function(req, res) {
 	var peer = req.query.peer;
@@ -493,6 +524,7 @@ app.get('/channels', function(req, res) {
 	logger.debug('peer: ' + req.query.peer);
 	var peer = req.query.peer;
 	if (!peer) {
+        res.statusCode = 400;
 		res.json(getErrorMessage('\'peer\''));
 		return;
 	}
