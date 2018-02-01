@@ -126,12 +126,13 @@ function getErrorMessage(field) {
 ///////////////////////////////////////////////////////////////////////////////
 // Register and enroll user
 app.post('/users', function(req, res) {
-	var username = req.body.username;
-	var orgName = req.body.orgName;
-	logger.debug('End point : /users');
-	logger.debug('User name : ' + username);
-	logger.debug('Org name  : ' + orgName);
-    logger.debug('>>> Request  : ' + req);
+    logger.debug('>>> Request Query: ' + JSON.stringify(req.query));
+    logger.debug('>>> Request Body: ' + JSON.stringify(req.body));
+    var username = req.body.username;
+    var orgName = req.body.orgName;
+    logger.debug('End point : /users');
+    logger.debug('User name : ' + username);
+    logger.debug('Org name  : ' + orgName);
 	if (!username) {
 	    res.statusCode = 400;
         res.json(getErrorMessage('\'username\''));
@@ -158,7 +159,7 @@ app.post('/users', function(req, res) {
 			});
 		}
 	});
-    logger.debug('<<< Response  : ' + res);
+    logger.debug('<<< Response  : ' + JSON.stringify(res.json));
 });
 
 // Create Channel
@@ -340,17 +341,19 @@ app.post('/channels/:channelName/chaincodesUpgrade', function(req, res) {
 // Invoke transaction on chaincode on target peers
 app.post('/channels/:channelName/chaincodes/:chaincodeName', function(req, res) {
 	logger.debug('==================== INVOKE ON CHAINCODE ==================');
-	var peers = req.body.peers;
-	var chaincodeName = req.params.chaincodeName;
-	var channelName = req.params.channelName;
-	var fcn = req.body.fcn;
-	var args = req.body.args;
-	logger.debug('channelName  : ' + channelName);
-	logger.debug('chaincodeName : ' + chaincodeName);
-	logger.debug('fcn  : ' + fcn);
-	logger.debug('args  : ' + args);
+    logger.debug('>>> Request Query: ' + JSON.stringify(req.query));
+    logger.debug('>>> Request Parameters: ' + JSON.stringify(req.params));
+    logger.debug('>>> Request Body: ' + JSON.stringify(req.body));
+    var peers = req.body.peers;
+    var chaincodeName = req.params.chaincodeName;
+    var channelName = req.params.channelName;
+    var fcn = req.body.fcn;
+    var args = req.body.args;
+    logger.debug('channelName  : ' + channelName);
+    logger.debug('chaincodeName : ' + chaincodeName);
+    logger.debug('fcn  : ' + fcn);
 
-    logger.debug('>>> Request  : ' + JSON.stringify(req.body));
+	logger.debug('args  : ' + args);
 
 	if (!peers || peers.length == 0) {
         res.statusCode = 400;

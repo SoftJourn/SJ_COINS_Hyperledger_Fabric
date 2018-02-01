@@ -76,6 +76,7 @@ services:
       - 3000:3000
     volumes:
       - /sjfabric_volumes/node_client/fabric-client-kvs_peerCoins1:/app_data
+      - /sjfabric_volumes/artifacts:/artifacts
 
   node.sjfabric.softjourn.if.ua:
     container_name: node.sjfabric.softjourn.if.ua
@@ -95,4 +96,4 @@ services:
     build: ./fabricapp
     image: fabricapp
     ports:
-      - 4200:4200 
+      - 4200:4200
