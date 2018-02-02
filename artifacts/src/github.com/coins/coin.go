@@ -198,6 +198,11 @@ func (t *CoinChain) transfer(stub shim.ChaincodeStubInterface, args []string) pb
 
 func (t *CoinChain) batchTransfer(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
+	/* args
+		0 - the array of the TransferRequest
+	*/
+
+
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting 1")
 	}
@@ -477,6 +482,10 @@ func (t *CoinChain) distribute(stub shim.ChaincodeStubInterface, args []string) 
 	mean := uint(amount/uint(len(accounts)))
 	logger.Info("mean ", mean)
 
+	if mean == 0 {
+		return shim.Error("The transfer amount per account is zero")
+	}
+
 	var i uint = 0
 	logger.Info("uint(len(accounts)) ", uint(len(accounts)))
 	for i < uint(len(accounts)) {
@@ -522,7 +531,7 @@ func (t *CoinChain) balanceOf(stub shim.ChaincodeStubInterface, args []string) p
 func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
 	/* args
-		0 - array of the user emails
+		0 - the array of the user emails
 	*/
 
 	if len(args) != 1 {
