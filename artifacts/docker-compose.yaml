@@ -8,6 +8,7 @@ version: '2'
 services:
 
   ca.coins.sjfabric.softjourn.if.ua:
+    restart: on-failure
     image: hyperledger/fabric-ca:x86_64-1.0.0
     environment:
       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
@@ -25,6 +26,7 @@ services:
     container_name: ca_peerCoins
 
   orderer.sjfabric.softjourn.if.ua:
+    restart: on-failure
     container_name: orderer.sjfabric.softjourn.if.ua
     image: hyperledger/fabric-orderer:x86_64-1.0.0
     environment:
@@ -79,6 +81,7 @@ services:
       - /sjfabric_volumes/artifacts:/artifacts
 
   node.sjfabric.softjourn.if.ua:
+    restart: on-failure
     container_name: node.sjfabric.softjourn.if.ua
     hostname: node.sjfabric.softjourn.if.ua
 
@@ -90,6 +93,7 @@ services:
         - /sjfabric_volumes/node_client:/app_data
 
   fabricapp.sjfabric.softjourn.if.ua:
+    restart: on-failure
     container_name: fabricapp.sjfabric.softjourn.if.ua
     hostname: fabricapp.sjfabric.softjourn.if.ua
 
