@@ -191,7 +191,7 @@ func (t *CoinChain) transfer(stub shim.ChaincodeStubInterface, args []string) pb
 
 	t.saveMap(stub, balancesKey, balancesMap)
 
-	return shim.Success([]byte(strconv.FormatUint(uint64(balancesMap[receiverAccount]), 10)))
+	return shim.Success([]byte(strconv.FormatUint(uint64(balancesMap[currentUserAccount]), 10)))
 }
 
 
