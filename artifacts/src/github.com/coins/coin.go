@@ -11,9 +11,11 @@ import (
 	"encoding/pem"
 	"crypto/x509"
 	"github.com/hyperledger/fabric/protos/utils"
+	"regexp"
+	"log"
 )
 
-var logger *shim.ChaincodeLogger
+var logger = shim.NewLogger("CoinsChaincode")
 
 type CoinChain struct {
 
@@ -55,12 +57,13 @@ func (t *CoinChain) Init(stub shim.ChaincodeStubInterface) pb.Response  {
 	_, args := stub.GetFunctionAndParameters()
 
 	if len(args) != 2 {
-		return shim.Error("Incorrect number of arguments. Expected 2")
+		return shim.Error(fmt.Sprintf("Incorrect number of arguments. Expected 2, was %d. Args:", len(args), args) )
 	}
 
 	currencyName = args[1]
 
 	logger = shim.NewLogger(currencyName)
+
 	logger.Infof("_____ %v Init _____", currencyName)
 
 	currentUserId, err := getCurrentUserId(stub)
@@ -129,6 +132,8 @@ func (t *CoinChain) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.balanceOf(stub, args)
 	} else if function == "batchBalanceOf" {
 		return t.batchBalanceOf(stub, args)
+	} else if function == "allBalances" {
+		return t.allBalances(stub, args)
 	} else if function == "distribute" {
 		return t.distribute(stub, args)
 	}
@@ -539,7 +544,6 @@ func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []stri
 	}
 
 	var emails []string
-	var balances = make(map[string]uint)
 
 	balancesResponse := []*UserBalance{}
 
@@ -557,7 +561,6 @@ func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []stri
 			return shim.Error(err.Error())
 		}
 		logger.Info("account ", account)
-		balances[email] = balancesMap[account]
 		balance := new(UserBalance)
 		balance.UserId = email
 		balance.Balance = balancesMap[account]
@@ -574,6 +577,51 @@ func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []stri
 }
 
 
+func (t *CoinChain) allBalances (stub shim.ChaincodeStubInterface, args []string) pb.Response {
+
+	balancesMap := t.getMap(stub, balancesKey)
+
+	keys := reflect.ValueOf(balancesMap).MapKeys()
+
+	logger.Info("keys", keys)
+
+	var balancesResponse []*UserBalance
+
+	for i := 0; i < len(keys); i++ {
+		account := keys[i].String()
+		//account, err := stub.CreateCompositeKey(userAccountType, []string{email})
+		//if err != nil {
+		//	return shim.Error(err.Error())
+		//}
+		logger.Info("account ", account)
+		balance := new(UserBalance)
+		balance.UserId = t.trimCompositeKey(account)
+		balance.Balance = balancesMap[account]
+		balancesResponse = append(balancesResponse, balance)
+	}
+
+	//for _, key := range keys {
+	//	email := key.String()
+	//	account, err := stub.CreateCompositeKey(userAccountType, []string{email})
+	//	if err != nil {
+	//		return shim.Error(err.Error())
+	//	}
+	//	logger.Info("account ", account)
+	//	balance := new(UserBalance)
+	//	balance.UserId = email
+	//	balance.Balance = balancesMap[account]
+	//	balancesResponse = append(balancesResponse, balance)
+	//}
+
+	result, err := json.Marshal(balancesResponse)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(result)
+}
+
 func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
 
 	var userId string
@@ -584,7 +632,15 @@ func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
 	}
 
 	creatorString :=fmt.Sprintf("%s",creatorBytes)
+	logger.Infof("---- creatorString: %s ", creatorString)
+
 	index := strings.Index(creatorString, "-----BEGIN CERTIFICATE-----")
+
+	if index == -1 {
+		index = strings.Index(creatorString, "-----BEGIN -----")
+	}
+
+	logger.Infof("---- index:  %d", index)
 	certificate := creatorString[index:]
 	block, _ := pem.Decode([]byte(certificate))
 
@@ -645,6 +701,16 @@ func (t *CoinChain) parseAmountUint(amount string) uint {
 		return 0
 	}
 	return uint(amount32)
+}
+
+func (t *CoinChain) trimCompositeKey(inputStr string) string {
+	reg, err := regexp.Compile("[^a-zA-Z0-9@.!#$%&'*+-/=?^_`{|}~]+")
+	if err != nil {
+		log.Fatal(err)
+	}
+	result :=  reg.ReplaceAllString(inputStr, "")
+	result = strings.TrimPrefix(result, userAccountType)
+	return result
 }
 
 func main() {
