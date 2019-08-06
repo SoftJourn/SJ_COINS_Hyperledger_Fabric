@@ -9,7 +9,8 @@ services:
 
   ca.coins.sjfabric.softjourn.if.ua:
     restart: on-failure
-    image: hyperledger/fabric-ca:x86_64-1.0.0
+    container_name: ca.coins.sjfabric.softjourn.if.ua
+    image: hyperledger/fabric-ca:latest
     environment:
       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
       - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.coins.sjfabric.softjourn.if.ua-cert.pem
@@ -23,12 +24,11 @@ services:
     volumes:
       - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
       - /sjfabric_volumes/ca:/app_data
-    container_name: ca_peerCoins
 
   orderer.sjfabric.softjourn.if.ua:
     restart: on-failure
     container_name: orderer.sjfabric.softjourn.if.ua
-    image: hyperledger/fabric-orderer:x86_64-1.0.0
+    image: hyperledger/fabric-orderer:latest
     environment:
       - ORDERER_GENERAL_LOGLEVEL=debug
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
@@ -45,10 +45,10 @@ services:
     ports:
       - 7050:7050
     volumes:
-        - ./channel:/etc/hyperledger/configtx
-        - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/orderer
-        - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peerCoins
-        - /sjfabric_volumes/orderer:/var/hyperledger/production
+      - ./channel:/etc/hyperledger/configtx
+      - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/orderer
+      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peerCoins
+      - /sjfabric_volumes/orderer:/var/hyperledger/production
 
   peer0.coins.sjfabric.softjourn.if.ua:
     container_name: peer0.coins.sjfabric.softjourn.if.ua
@@ -59,45 +59,29 @@ services:
       - CORE_PEER_ID=peer0.coins.sjfabric.softjourn.if.ua
       - CORE_PEER_LOCALMSPID=CoinsMSP
       - CORE_PEER_ADDRESS=peer0.coins.sjfabric.softjourn.if.ua:7051
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.sjfabric.softjourn.if.ua:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=
     ports:
       - 7051:7051
       - 7053:7053
     volumes:
-        - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peer
-        - /sjfabric_volumes/peer0:/var/hyperledger/production
+      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peer
+      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/users/Admin@coins.sjfabric.softjourn.if.ua:/etc/hyperledger/crypto/admin
+      - /sjfabric_volumes/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
-
-  caapp.sjfabric.softjourn.if.ua:
-    container_name: caapp.sjfabric.softjourn.if.ua
-    hostname: caapp.sjfabric.softjourn.if.ua
-
-    build: ./caapp
-    image: caapp
-    ports:
-      - 3000:3000
-    volumes:
-      - /sjfabric_volumes/node_client/fabric-client-kvs_peerCoins1:/app_data
-      - /sjfabric_volumes/artifacts:/artifacts
+      - couchdb.sjfabric.softjourn.if.ua
 
   node.sjfabric.softjourn.if.ua:
     restart: on-failure
     container_name: node.sjfabric.softjourn.if.ua
     hostname: node.sjfabric.softjourn.if.ua
-
     build: ./..
     image: node
     ports:
       - 4000:4000
     volumes:
-        - /sjfabric_volumes/node_client:/app_data
-
-  fabricapp.sjfabric.softjourn.if.ua:
-    restart: on-failure
-    container_name: fabricapp.sjfabric.softjourn.if.ua
-    hostname: fabricapp.sjfabric.softjourn.if.ua
-
-    build: ./fabricapp
-    image: fabricapp
-    ports:
-      - 4200:4200
+      - /sjfabric_volumes/node_client:/app_data
+      - ./channel/crypto-config:/app_data/crypto

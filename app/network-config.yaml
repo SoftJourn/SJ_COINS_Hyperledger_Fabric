@@ -1,0 +1,148 @@
+---
+
+name: "node-app"
+
+x-type: "hlfv1"
+
+description: "Node app"
+
+version: "1.0"
+
+client:
+  # Which organization does this application instance belong to? The value must be the name of an org
+  # defined under "organizations"
+  organization: coins
+
+  # Some SDKs support pluggable KV stores, the properties under "credentialStore"
+  # are implementation specific
+  credentialStore:
+    # [Optional]. Specific to FileKeyValueStore.js or similar implementations in other SDKs. Can be others
+    # if using an alternative impl. For instance, CouchDBKeyValueStore.js would require an object
+    # here for properties like url, db name, etc.
+    path: "/app_data/fabric-client-kvs_peerCoins1"
+
+    # [Optional]. Specific to the CryptoSuite implementation. Software-based implementations like
+    # CryptoSuite_ECDSA_AES.js in node SDK requires a key store. PKCS#11 based implementations does
+    # not.
+    cryptoStore:
+      # Specific to the underlying KeyValueStore that backs the crypto key store.
+      path: "/app_data/fabric-client-kvs_peerCoins1"
+
+    # [Optional]. Specific to Composer environment
+    wallet: wallet-name
+
+channels:
+  # name of the channel
+  mychannel:
+    # Required. list of orderers designated by the application to use for transactions on this
+    # channel. This list can be a result of access control ("org1" can only access "ordererA"), or
+    # operational decisions to share loads from applications among the orderers.  The values must
+    # be "names" of orgs defined under "organizations/peers"
+    orderers:
+      - orderer.sjfabric.softjourn.if.ua
+
+    # Required. list of peers from participating orgs
+    peers:
+      peer0.coins.sjfabric.softjourn.if.ua:
+        # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
+        # have the chaincode installed. The app can also use this property to decide which peers
+        # to send the chaincode install request. Default: true
+        endorsingPeer: true
+
+        # [Optional]. will this peer be sent query proposals? The peer must have the chaincode
+        # installed. The app can also use this property to decide which peers to send the
+        # chaincode install request. Default: true
+        chaincodeQuery: true
+
+        # [Optional]. will this peer be sent query proposals that do not require chaincodes, like
+        # queryBlock(), queryTransaction(), etc. Default: true
+        ledgerQuery: true
+
+        # [Optional]. will this peer be the target of the SDK's listener registration? All peers can
+        # produce events but the app typically only needs to connect to one to listen to events.
+        # Default: true
+        eventSource: true
+
+#
+# list of participating organizations in this network
+#
+organizations:
+  coins:
+    mspid: CoinsMSP
+
+    peers:
+      - peer0.coins.sjfabric.softjourn.if.ua
+
+    # [Optional]. Certificate Authorities issue certificates for identification purposes in a Fabric based
+    # network. Typically certificates provisioning is done in a separate process outside of the
+    # runtime network. Fabric-CA is a special certificate authority that provides a REST APIs for
+    # dynamic certificate management (enroll, revoke, re-enroll). The following section is only for
+    # Fabric-CA servers.
+    certificateAuthorities:
+      - ca.coins.sjfabric.softjourn.if.ua
+
+    # [Optional]. If the application is going to make requests that are reserved to organization
+    # administrators, including creating/updating channels, installing/instantiating chaincodes, it
+    # must have access to the admin identity represented by the private key and signing certificate.
+    # Both properties can be the PEM string or local path to the PEM file. Note that this is mainly for
+    # convenience in development mode, production systems should not expose sensitive information
+    # this way. The SDK should allow applications to set the org admin identity via APIs, and only use
+    # this route as an alternative when it exists.
+    adminPrivateKey:
+      path: /app_data/crypto/peerOrganizations/coins.sjfabric.softjourn.if.ua/users/Admin@coins.sjfabric.softjourn.if.ua/msp/keystore/90f8415981f7240cf101edda167a3b760ceabe2768ab2d36a6a518df608184b
+    signedCert:
+      path: /app_data/crypto/peerOrganizations/coins.sjfabric.softjourn.if.ua/users/Admin@coins.sjfabric.softjourn.if.ua/msp/signcerts/Admin@coins.sjfabric.softjourn.if.ua-cert.pem
+
+#
+# List of orderers to send transaction and channel create/update requests to. For the time
+# being only one orderer is needed. If more than one is defined, which one get used by the
+# SDK is implementation specific. Consult each SDK's documentation for its handling of orderers.
+#
+orderers:
+  orderer.sjfabric.softjourn.if.ua:
+    url: grpcs://orderer.sjfabric.softjourn.if.ua:7050
+
+    # these are standard properties defined by the gRPC library
+    # they will be passed in as-is to gRPC client constructor
+    grpcOptions:
+      ssl-target-name-override: orderer.sjfabric.softjourn.if.ua
+
+    tlsCACerts:
+      path: /app_data/crypto/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls/ca.crt
+
+#
+# List of peers to send various requests to, including endorsement, query
+# and event listener registration.
+#
+peers:
+  peer0.coins.sjfabric.softjourn.if.ua:
+    # this URL is used to send endorsement and query requests
+    url: grpcs://peer0.coins.sjfabric.softjourn.if.ua:7051
+
+    grpcOptions:
+      ssl-target-name-override: peer0.coins.sjfabric.softjourn.if.ua
+    tlsCACerts:
+      path: /app_data/crypto/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/tls/ca.crt
+
+#
+# Fabric-CA is a special kind of Certificate Authority provided by Hyperledger Fabric which allows
+# certificate management to be done via REST APIs. Application may choose to use a standard
+# Certificate Authority instead of Fabric-CA, in which case this section would not be specified.
+#
+certificateAuthorities:
+  ca.coins.sjfabric.softjourn.if.ua:
+    url: https://ca.coins.sjfabric.softjourn.if.ua:7054
+    # the properties specified under this object are passed to the 'http' client verbatim when
+    # making the request to the Fabric-CA server
+    httpOptions:
+      verify: false
+    tlsCACerts:
+      path: /app_data/crypto/peerOrganizations/coins.sjfabric.softjourn.if.ua/ca/ca.coins.sjfabric.softjourn.if.ua-cert.pem
+
+    # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
+    # needed to enroll and invoke new users.
+    registrar:
+      - enrollId: admin
+        enrollSecret: adminpw
+    # [Optional] The optional name of the CA.
+    caName: ca.coins.sjfabric.softjourn.if.ua

@@ -4,7 +4,7 @@
    "jwt_expiretime": "36000",
    "channelName":"mychannel",
    "GOPATH":"../artifacts",
-   "keyValueStore":"/app_data/fabric-client-kvs",
+   "keyValueStore":"/app_data/fabric-client-kvs_peerCoins1",
    "eventWaitTime":"30000",
    "logLevel": "debug",
    "logFilePath": "/app_data/logs/fabric-client.log",
