@@ -59,10 +59,6 @@ services:
       - CORE_PEER_ID=peer0.coins.sjfabric.softjourn.if.ua
       - CORE_PEER_LOCALMSPID=CoinsMSP
       - CORE_PEER_ADDRESS=peer0.coins.sjfabric.softjourn.if.ua:7051
-      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
-      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.sjfabric.softjourn.if.ua:5984
-      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=
-      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=
     ports:
       - 7051:7051
       - 7053:7053
