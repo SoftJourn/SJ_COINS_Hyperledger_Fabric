@@ -7,7 +7,7 @@ A sample Node.js app to demonstrate **__fabric-client__** & **__fabric-ca-client
 * [Docker](https://www.docker.com/products/overview) - v1.12 or higher
 * [Docker Compose](https://docs.docker.com/compose/overview/) - v1.8 or higher
 * [Git client](https://git-scm.com/downloads) - needed for clone commands
-* **Node.js** v6.9.0 - 6.10.0 ( __Node v7+ is not supported__ )
+* **Node.js** v8
 * Download docker images
 
 ```
