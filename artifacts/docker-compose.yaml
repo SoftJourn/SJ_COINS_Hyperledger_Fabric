@@ -68,7 +68,6 @@ services:
       - /sjfabric_volumes/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
-      - couchdb.sjfabric.softjourn.if.ua
 
   node.sjfabric.softjourn.if.ua:
     restart: on-failure
