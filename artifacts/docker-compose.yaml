@@ -5,6 +5,9 @@
 #
 version: '2'
 
+networks:
+  coins-network:
+
 services:
 
   ca.coins.sjfabric.softjourn.if.ua:
@@ -24,6 +27,8 @@ services:
     volumes:
       - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
       - /sjfabric_volumes/ca:/app_data
+    networks:
+      - coins-network
 
   orderer.sjfabric.softjourn.if.ua:
     restart: on-failure
@@ -45,38 +50,84 @@ services:
     ports:
       - 7050:7050
     volumes:
-      - ./channel:/etc/hyperledger/configtx
-      - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/orderer
-      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peerCoins
+      - ./channel/configtx:/etc/hyperledger/configtx
+      - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua:/etc/hyperledger/crypto/orderer
+      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua:/etc/hyperledger/crypto/peerCoins
       - /sjfabric_volumes/orderer:/var/hyperledger/production
+    networks:
+      - coins-network
 
   peer0.coins.sjfabric.softjourn.if.ua:
     container_name: peer0.coins.sjfabric.softjourn.if.ua
-    extends:
-      file:   base.yaml
-      service: peer-base
+    image: hyperledger/fabric-peer:latest
     environment:
       - CORE_PEER_ID=peer0.coins.sjfabric.softjourn.if.ua
       - CORE_PEER_LOCALMSPID=CoinsMSP
       - CORE_PEER_ADDRESS=peer0.coins.sjfabric.softjourn.if.ua:7051
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # the following setting starts chaincode containers on the same
+      # bridge network as the peers
+      # https://docs.docker.com/compose/networking/
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=artifacts_default
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_GOSSIP_USELEADERELECTION=false
+      - CORE_PEER_GOSSIP_ORGLEADER=true
+      # The following setting skips the gossip handshake since we are
+      # are not doing mutual TLS
+      - CORE_PEER_GOSSIP_SKIPHANDSHAKE=true
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/crypto/peer/msp
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/crypto/peer/tls/server.key
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/crypto/peer/tls/server.crt
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/crypto/peer/tls/ca.crt
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb0.coins.sjfabric.softjourn.if.ua:5984
+      # The CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME and CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD
+      # provide the credentials for ledger to connect to CouchDB.  The username and password must
+      # match the username and password set for the associated CouchDB.
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=
     ports:
       - 7051:7051
       - 7053:7053
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
     volumes:
-      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua/:/etc/hyperledger/crypto/peer
+      - /var/run/:/host/var/run/
+      - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/peers/peer0.coins.sjfabric.softjourn.if.ua:/etc/hyperledger/crypto/peer
+      - ./channel/crypto-config/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua:/etc/hyperledger/crypto/orderer
       - ./channel/crypto-config/peerOrganizations/coins.sjfabric.softjourn.if.ua/users/Admin@coins.sjfabric.softjourn.if.ua:/etc/hyperledger/crypto/admin
+      - ./channel/configtx:/etc/hyperledger/configtx
+      - ./src/github.com/coins:/etc/hyperledger/chaincode
       - /sjfabric_volumes/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
+    networks:
+      - coins-network
 
-  node.sjfabric.softjourn.if.ua:
-    restart: on-failure
-    container_name: node.sjfabric.softjourn.if.ua
-    hostname: node.sjfabric.softjourn.if.ua
-    build: ./..
-    image: node
+  couchdb0.coins.sjfabric.softjourn.if.ua:
+    container_name: couchdb0.coins.sjfabric.softjourn.if.ua
+    image: hyperledger/fabric-couchdb
+    # Populate the COUCHDB_USER and COUCHDB_PASSWORD to set an admin user and password
+    # for CouchDB.  This will prevent CouchDB from operating in an "Admin Party" mode.
+    environment:
+      - COUCHDB_USER=
+      - COUCHDB_PASSWORD=
+    # Comment/Uncomment the port mapping if you want to hide/expose the CouchDB service,
+    # for example map it to utilize Fauxton User Interface in dev environments.
     ports:
-      - 4000:4000
-    volumes:
-      - /sjfabric_volumes/node_client:/app_data
-      - ./channel/crypto-config:/app_data/crypto
+      - "5984:5984"
+    networks:
+      - coins-network
+
+#  node.sjfabric.softjourn.if.ua:
+#    restart: on-failure
+#    container_name: node.sjfabric.softjourn.if.ua
+#    hostname: node.sjfabric.softjourn.if.ua
+#    build: ./../coin-app/
+#    image: node
+#    ports:
+#      - 4000:4000
+#    volumes:
+#      - /sjfabric_volumes/node_client:/app_data
+#      - ./channel/crypto-config:/app_data/crypto

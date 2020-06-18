@@ -1,0 +1,23 @@
+version: '2'
+
+networks:
+  coins-network:
+
+services:
+  chaincode-deployer:
+    container_name: chaincode-deployer
+    image: hyperledger/fabric-tools:2.1.0
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - FABRIC_LOGGING_SPEC=DEBUG
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+      - ./src/github.com/coins:/opt/gopath/src/github.com/chaincode/coins
+      - ./channel/crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      - ./setupchaincode.sh:/opt/gopath/src/github.com/hyperledger/fabric/peer/setupchaincode.sh
+    ports:
+      - 15050:15050
+    networks:
+      - coins-network

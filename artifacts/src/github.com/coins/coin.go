@@ -1,225 +1,181 @@
 package main
 
 import (
-	"github.com/hyperledger/fabric/core/chaincode/shim"
-	pb "github.com/hyperledger/fabric/protos/peer"
-	"fmt"
-	"reflect"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"fmt"
+	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"log"
+	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
-	"encoding/pem"
-	"crypto/x509"
-	"github.com/hyperledger/fabric/protos/utils"
-	"regexp"
-	"log"
 )
 
-var logger = shim.NewLogger("CoinsChaincode")
-
 type CoinChain struct {
-
+	contractapi.Contract
 }
 
-type TransferRequest struct{
+type TransferRequest struct {
 	UserId string `json:"userId"`
-	Amount uint `json:"amount"`
+	Amount uint   `json:"amount"`
 }
 
 type UserBalance struct {
-	UserId string `json:"userId"`
-	Balance uint `json:"balance"`
+	UserId  string `json:"userId"`
+	Balance uint   `json:"balance"`
 }
-
 
 var currencyName string
 
-var minterKey string = "minter"
-var balancesKey string = "balances"
-var currencyKey string = "currency"
+var minterKey = "minter"
+var balancesKey = "balances"
+var currencyKey = "currency"
 
-//var channelName string = "mychannel"
-
-//var foundationAccountType string = "foundation_"
-var userAccountType string = "user_"
+var userAccountType = "user_"
 
 //For TransferFrom
 var txBalancesMap map[string]uint
 var lastTxId string
 
-func (t *CoinChain) Init(stub shim.ChaincodeStubInterface) pb.Response  {
+func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (string, error) {
 
 	/* args
-		0 - minter ID
-		1 - Currency name
+	0 - minter ID
+	1 - Currency name
 	*/
 
-	_, args := stub.GetFunctionAndParameters()
+	_, args := ctx.GetStub().GetFunctionAndParameters()
 
 	if len(args) != 2 {
-		return shim.Error(fmt.Sprintf("Incorrect number of arguments. Expected 2, was %d. Args:", len(args), args) )
+		return "-1", fmt.Errorf("incorrect number of arguments. Expected 2, was %d", len(args))
 	}
 
 	currencyName = args[1]
 
-	logger = shim.NewLogger(currencyName)
+	fmt.Println("_____ Init " + currencyName + "_____")
 
-	logger.Infof("_____ %v Init _____", currencyName)
-
-	currentUserId, err := getCurrentUserId(stub)
+	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return shim.Error(err.Error())
+		return currencyName, err
 	}
 
-	err = stub.PutState(currencyKey, []byte(currencyName))
+	err = ctx.GetStub().PutState(currencyKey, []byte(currencyName))
 	if err != nil {
-		return shim.Error(err.Error())
+		return currencyName, err
 	}
 
-	logger.Info("minter ID: ", args[0])
+	fmt.Println("minter ID: " + args[0])
 
 	minterBytes := []byte(args[0])
 
-	err = stub.PutState(minterKey, minterBytes)
+	err = ctx.GetStub().PutState(minterKey, minterBytes)
 	if err != nil {
-		return shim.Error(err.Error())
+		return currencyName, err
 	}
 
-	currentUserAccount, err := stub.CreateCompositeKey(userAccountType, []string{currentUserId})
+	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 	if err != nil {
-		return shim.Error(err.Error())
+		return currencyName, err
 	}
-	logger.Info("currentUserAccount ", currentUserAccount)
 
-	balancesMap := t.getMap(stub, balancesKey)
+	fmt.Println("currentUserAccount: " + currentUserAccount)
+
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	if len(balancesMap) == 0 {
-		balancesMap = map[string]uint{currentUserAccount:0}
-		t.saveMap(stub, balancesKey, balancesMap)
+		balancesMap = map[string]uint{currentUserAccount: 0}
+		err = t.saveMap(ctx, balancesKey, balancesMap)
+		if err != nil {
+			return currencyName, err
+		}
 	}
 
-	return shim.Success([]byte(currencyName))
+	return currencyName, nil
 }
 
-func (t *CoinChain) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-
-	function, args := stub.GetFunctionAndParameters()
-	fmt.Println("invoke is running " + function)
-
-	currentUserId, err := getCurrentUserId(stub)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	logger.Info("sender (current user)", currentUserId)
-
-	if lastTxId != stub.GetTxID() {
-		txBalancesMap = make(map[string]uint)
-	}
-
-	if function == "getColor" {
-		return t.getCurrency(stub, args)
-	} else if function == "setColor" {
-		return t.setCurrency(stub, args)
-	} else if function == "mint"{
-		return t.mint(stub, args)
-	} else if function == "transfer" {
-		return t.transfer(stub, args)
-	} else if function == "batchTransfer" {
-		return t.batchTransfer(stub, args)
-	} else if function == "transferFrom" {
-		return t.transferFrom(stub, args)
-	} else if function == "balanceOf" {
-		return t.balanceOf(stub, args)
-	} else if function == "batchBalanceOf" {
-		return t.batchBalanceOf(stub, args)
-	} else if function == "allBalances" {
-		return t.allBalances(stub, args)
-	} else if function == "distribute" {
-		return t.distribute(stub, args)
-	}
-	fmt.Println("invoke did not find func: " + function)
-	return shim.Error("Received unknown function invocation")
-}
-
-func (t *CoinChain) transfer(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) transfer(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
-		0 - accountType (user_ , foundation_)
-		1 - receiver ID
-		2 - amount
+	0 - accountType (user_ , foundation_)
+	1 - receiver ID
+	2 - amount
 	*/
 
 	if len(args) != 3 {
-		return shim.Error("Incorrect number of arguments. Expecting 3")
+		return errors.New("incorrect number of arguments. Expecting 3")
 	}
 
 	receiverAccountType := args[0]
-	logger.Info("accountType ", receiverAccountType)
+	fmt.Println("accountType: " + receiverAccountType)
 
 	receiver := args[1]
-	logger.Info("receiver ", receiver)
+	fmt.Println("receiver " + receiver)
 
-	logger.Info("args[2] ", args[2])
+	fmt.Println("args[2] " + args[2])
 	amount := t.parseAmountUint(args[2])
-	logger.Info("amount ", amount)
-
+	fmt.Println("amount " + string(amount))
 
 	if amount == 0 {
-		return shim.Error("Incorrect amount")
+		return errors.New("incorrect amount")
 	}
 
-	currentUserId, err := getCurrentUserId(stub)
+	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
-	currentUserAccount, err := stub.CreateCompositeKey(userAccountType, []string{currentUserId})
+	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("currentUserAccount ", currentUserAccount)
 
-	receiverAccount, err := stub.CreateCompositeKey(receiverAccountType, []string{receiver})
+	fmt.Println("currentUserAccount " + currentUserAccount)
+
+	receiverAccount, err := ctx.GetStub().CreateCompositeKey(receiverAccountType, []string{receiver})
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("receiverAccount ", receiverAccount)
 
-	balancesMap := t.getMap(stub, balancesKey)
+	fmt.Println("receiverAccount " + receiverAccount)
+
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	if balancesMap[currentUserAccount] < amount {
-		return shim.Error("Not enough coins")
+		return errors.New("not enough coins")
 	}
 
 	balancesMap[currentUserAccount] -= amount
 	balancesMap[receiverAccount] += amount
 
-	t.saveMap(stub, balancesKey, balancesMap)
-
-	return shim.Success([]byte(strconv.FormatUint(uint64(balancesMap[currentUserAccount]), 10)))
-}
-
-
-
-func (t *CoinChain) batchTransfer(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-
-	/* args
-		0 - the array of the TransferRequest
-	*/
-
-
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return err
 	}
 
-	transferRequests := []TransferRequest{}
+	return nil
+}
+
+func (t *CoinChain) batchTransfer(ctx contractapi.TransactionContextInterface, args []string) error {
+
+	/* args
+	0 - the array of the TransferRequest
+	*/
+
+	if len(args) != 1 {
+		return errors.New("incorrect number of arguments. Expecting 1")
+	}
+
+	var transferRequests []TransferRequest
 	err := json.Unmarshal([]byte(args[0]), &transferRequests)
 
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
-	logger.Info(transferRequests)
+	fmt.Println(transferRequests)
 
 	var total uint = 0
 
@@ -227,153 +183,163 @@ func (t *CoinChain) batchTransfer(stub shim.ChaincodeStubInterface, args []strin
 		total += tr.Amount
 	}
 
-	currentUserId, err := getCurrentUserId(stub)
+	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
-	currentUserAccount, err := stub.CreateCompositeKey(userAccountType, []string{currentUserId})
+	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
-	logger.Info("currentUserAccount ", currentUserAccount)
+	fmt.Println("currentUserAccount " + currentUserAccount)
 
-	balancesMap := t.getMap(stub, balancesKey)
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	currentUserBalance := balancesMap[currentUserAccount]
 
-	logger.Info("currentUserBalance ", currentUserBalance)
+	fmt.Println("currentUserBalance ", currentUserBalance)
+
 	if total > currentUserBalance {
-		return shim.Error("Not enough money")
+		return errors.New("not enough money")
 	}
 
 	for _, tr := range transferRequests {
-		receiverAccount, err := stub.CreateCompositeKey(userAccountType, []string{tr.UserId})
+		receiverAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{tr.UserId})
 		if err != nil {
-			return shim.Error(err.Error())
+			return err
 		}
 		balancesMap[currentUserAccount] -= tr.Amount
 		balancesMap[receiverAccount] += tr.Amount
 	}
-	t.saveMap(stub, balancesKey, balancesMap)
 
-	return shim.Success(nil)
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (t *CoinChain) transferFrom(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) transferFrom(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
-		0 - sender account type (user_ , foundation_)
-		1 - sender ID
-		2 - receiver account type (user_ , foundation_)
-		3 - receiver ID
-		4 - amount
+	0 - sender account type (user_ , foundation_)
+	1 - sender ID
+	2 - receiver account type (user_ , foundation_)
+	3 - receiver ID
+	4 - amount
 	*/
 
-	if getBaseChaincodeName(stub) != "foundation" {
-		return shim.Error("Only \"foundation\" chaincode allowed to invoke transferFrom method")
+	if t.getBaseChaincodeName() != "foundation" {
+		return errors.New("only \"foundation\" chaincode allowed to invoke transferFrom method")
 	}
 
 	if len(args) != 5 {
-		return shim.Error("Incorrect number of arguments. Expecting 5")
+		return errors.New("incorrect number of arguments. Expecting 5")
 	}
 
 	senderAccountType := args[0]
-	logger.Info("sender account type ", senderAccountType)
+	fmt.Println("sender account type " + senderAccountType)
 	sender := args[1]
-	logger.Info("sender ", sender)
+	fmt.Println("sender " + sender)
 
 	receiverAccountType := args[2]
-	logger.Info("receiver account type ", receiverAccountType)
+	fmt.Println("receiver account type " + receiverAccountType)
 	receiver := args[3]
-	logger.Info("receiver ", receiver)
+	fmt.Println("receiver " + receiver)
 
-	logger.Info("amount args[4] ", args[4])
+	fmt.Println("amount args[4] " + args[4])
 	amount := t.parseAmountUint(args[4])
-	logger.Info("amount ", amount)
-
+	fmt.Println("amount " + string(amount))
 
 	if amount == 0 {
-		return shim.Error("Incorrect amount")
+		return errors.New("incorrect amount")
 	}
 
-	senderAccount, err := stub.CreateCompositeKey(senderAccountType, []string{sender})
+	senderAccount, err := ctx.GetStub().CreateCompositeKey(senderAccountType, []string{sender})
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("senderAccount ", senderAccount)
+	fmt.Println("senderAccount " + senderAccount)
 
-	receiverAccount, err := stub.CreateCompositeKey(receiverAccountType, []string{receiver})
+	receiverAccount, err := ctx.GetStub().CreateCompositeKey(receiverAccountType, []string{receiver})
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("receiverAccount ", receiverAccount)
+	fmt.Println("receiverAccount " + receiverAccount)
 
-	balancesMap := t.getTransactionBalancesMap(stub)
+	balancesMap := t.getTransactionBalancesMap(ctx)
 
 	if balancesMap[senderAccount] < amount {
-		return shim.Error("Not enough coins")
+		return errors.New("not enough coins")
 	}
 
 	balancesMap[senderAccount] -= amount
 	balancesMap[receiverAccount] += amount
 
-	t.saveMap(stub, balancesKey, balancesMap)
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return err
+	}
 
-	return shim.Success([]byte(strconv.FormatUint(uint64(balancesMap[receiverAccount]), 10)))
+	return nil
 }
 
-func (t *CoinChain) setCurrency(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) setCurrency(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	//Obsolete (setColor) not sure we need this. Chaincode name is currency name
 
 	/* args
-		0 - currency name
+	0 - currency name
 	*/
 
 	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
+		return errors.New("incorrect number of arguments. Expecting 1")
 	}
 
-	minterValue, err := stub.GetState(minterKey)
+	minterValue, err := ctx.GetStub().GetState(minterKey)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
-	currentUserId, err := getCurrentUserId(stub)
+	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
 	if reflect.DeepEqual([]byte(currentUserId), minterValue) {
-		return shim.Error("User has no permissions")
+		return errors.New("user has no permissions")
 	}
 
 	currency := args[0]
 
-	err = stub.PutState(currencyKey, []byte(currency))
+	err = ctx.GetStub().PutState(currencyKey, []byte(currency))
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	return shim.Success([]byte(currency))
+
+	return nil
 }
 
-func (t *CoinChain) getCurrency(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) getCurrency(ctx contractapi.TransactionContextInterface) (string, error) {
 
-	currency, err := stub.GetState(currencyKey)
+	currency, err := ctx.GetStub().GetState(currencyKey)
 	if err != nil {
 		jsonResp := "{\"Error\":\"Failed to get state for " + currencyKey + "\"}"
-		return shim.Error(jsonResp)
+		return "", errors.New(jsonResp)
 	}
-	return shim.Success(currency)
+
+	return string(currency), nil
 }
 
-func (t *CoinChain) getMap(stub shim.ChaincodeStubInterface, mapName string) map[string]uint {
+func (t *CoinChain) getMap(ctx contractapi.TransactionContextInterface, mapName string) map[string]uint {
 
-	logger.Info("------ getMap called")
-	mapBytes, err := stub.GetState(mapName)
+	fmt.Println("------ getMap called")
+
+	mapBytes, err := ctx.GetStub().GetState(mapName)
 	if err != nil {
 		return nil
 	}
@@ -383,256 +349,244 @@ func (t *CoinChain) getMap(stub shim.ChaincodeStubInterface, mapName string) map
 	if err != nil {
 		return nil
 	}
-	logger.Info("received map", mapObject)
+
 	return mapObject
 }
 
-func (t *CoinChain) saveMap(stub shim.ChaincodeStubInterface, mapName string, mapObject map[string]uint) pb.Response {
-	logger.Info("------ saveBalancesMap called")
+func (t *CoinChain) saveMap(ctx contractapi.TransactionContextInterface, mapName string, mapObject map[string]uint) error {
+	fmt.Println("------ saveBalancesMap called")
+
 	balancesMapBytes, err := json.Marshal(mapObject)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	err = stub.PutState(mapName, balancesMapBytes)
+
+	err = ctx.GetStub().PutState(mapName, balancesMapBytes)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("saved ", mapObject)
-	return shim.Success(nil)
+
+	return nil
 }
 
-func (t *CoinChain) mint(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) mint(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
-		0 - amount
+	0 - amount
 	*/
 
 	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
+		return errors.New("incorrect number of arguments. Expecting 1")
 	}
 
-	minterBytes, err := stub.GetState(minterKey)
+	minterBytes, err := ctx.GetStub().GetState(minterKey)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
 	minterString := string(minterBytes)
-	logger.Info("minter ", minterString)
+	fmt.Println("minter " + minterString)
 
-	currentUserId, err := getCurrentUserId(stub)
+	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
 	if currentUserId != minterString {
-		return shim.Error("No permissions")
+		return errors.New("no permissions")
 	}
 
 	amount := t.parseAmountUint(args[0])
 	if amount == 0 {
-		return shim.Error("Incorrect amount")
+		return errors.New("incorrect amount")
 	}
 
-	currentUserAccount, err := stub.CreateCompositeKey(userAccountType, []string{currentUserId})
+	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("currentUserAccount ", currentUserAccount)
 
+	fmt.Println("currentUserAccount " + currentUserAccount)
 
-	balancesMap := t.getMap(stub, balancesKey)
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	balancesMap[currentUserAccount] += amount
-	t.saveMap(stub, balancesKey, balancesMap)
 
-	return shim.Success([]byte(strconv.FormatUint(uint64(balancesMap[currentUserAccount]), 10)))
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (t *CoinChain) distribute(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) distribute(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
-		0.. n-1 - accounts
-		n - amount
+	0.. n-1 - accounts
+	n - amount
 	*/
 
 	if len(args) < 3 {
-		return shim.Error("Incorrect number of arguments. Expecting at least 3")
+		return errors.New("incorrect number of arguments. Expecting at least 3")
 	}
 
 	amount := t.parseAmountUint(args[len(args)-1])
 	if amount == 0 {
-		return shim.Error("Incorrect amount")
+		return errors.New("incorrect amount")
 	}
+
 	accounts := args[:len(args)-1]
-	logger.Info("accounts: ", accounts)
-	logger.Info("amount ", amount)
 
-	currentUserId, err := getCurrentUserId(stub)
+	fmt.Println("accounts: " + strings.Join(accounts, ", "))
+	fmt.Println("amount " + string(amount))
+
+	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
 
-	currentUserAccount, err := stub.CreateCompositeKey(userAccountType, []string{currentUserId})
+	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("currentUserAccount ", currentUserAccount)
+	fmt.Println("currentUserAccount " + currentUserAccount)
 
-	balancesMap := t.getMap(stub, balancesKey)
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	if balancesMap[currentUserAccount] < amount {
-		return shim.Error("Not enough coins")
+		return errors.New("not enough coins")
 	}
 
-	mean := uint(amount/uint(len(accounts)))
-	logger.Info("mean ", mean)
+	mean := amount / uint(len(accounts))
+	fmt.Println("mean " + string(mean))
 
 	if mean == 0 {
-		return shim.Error("The transfer amount per account is zero")
+		return err
 	}
 
 	var i uint = 0
-	logger.Info("uint(len(accounts)) ", uint(len(accounts)))
-	for i < uint(len(accounts)) {
-		logger.Info("i ", i)
 
-		receiverAccount, err := stub.CreateCompositeKey(userAccountType, []string{accounts[i]})
+	fmt.Println("uint(len(accounts)) " + string(len(accounts)))
+
+	for i < uint(len(accounts)) {
+		fmt.Println("i " + string(i))
+
+		receiverAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{accounts[i]})
 		if err != nil {
-			return shim.Error(err.Error())
+			return err
 		}
-		logger.Info("receiverAccount ", receiverAccount)
+		fmt.Println("receiverAccount " + receiverAccount)
 
 		balancesMap[currentUserAccount] -= mean
-		logger.Info("balancesMap[currentUserAccount} ", balancesMap[currentUserAccount])
-		logger.Info("receiverAccount ", receiverAccount)
+		fmt.Println("balancesMap[currentUserAccount} " + string(balancesMap[currentUserAccount]))
+		fmt.Println("receiverAccount " + receiverAccount)
 		balancesMap[receiverAccount] += mean
-		logger.Info("balancesMap[receiverAccount] ", balancesMap[receiverAccount])
+		fmt.Println("balancesMap[receiverAccount] " + string(balancesMap[receiverAccount]))
 		i += 1
 	}
-	t.saveMap(stub, balancesKey,balancesMap)
-	return shim.Success(nil)
-}
 
-func (t *CoinChain) balanceOf(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-
-	/* args
-		0 - user ID
-	*/
-
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
-	}
-
-	account, err := stub.CreateCompositeKey(userAccountType, []string{args[0]})
+	err = t.saveMap(ctx, balancesKey, balancesMap)
 	if err != nil {
-		return shim.Error(err.Error())
+		return err
 	}
-	logger.Info("account ", account)
 
-	balancesMap := t.getMap(stub, balancesKey)
-	return shim.Success([]byte(fmt.Sprintf("%d", balancesMap[account])))
+	return nil
 }
 
-func (t *CoinChain) batchBalanceOf(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *CoinChain) balanceOf(ctx contractapi.TransactionContextInterface, args []string) (uint, error) {
 
 	/* args
-		0 - the array of the user emails
+	0 - user ID
 	*/
 
 	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
+		return -1, errors.New("incorrect number of arguments. Expecting 1")
+	}
+
+	account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{args[0]})
+	if err != nil {
+		return -1, err
+	}
+
+	fmt.Println("account " + account)
+
+	balancesMap := t.getMap(ctx, balancesKey)
+
+	return balancesMap[account], nil
+}
+
+func (t *CoinChain) batchBalanceOf(ctx contractapi.TransactionContextInterface, args []string) ([]*UserBalance, error) {
+
+	/* args
+	0 - the array of the user emails
+	*/
+
+	if len(args) != 1 {
+		return nil, errors.New("incorrect number of arguments. Expecting 1")
 	}
 
 	var emails []string
 
-	balancesResponse := []*UserBalance{}
+	var balancesResponse []*UserBalance
 
 	err := json.Unmarshal([]byte(args[0]), &emails)
 
 	if err != nil {
-		return shim.Error(err.Error())
+		return nil, err
 	}
 
-	balancesMap := t.getMap(stub, balancesKey)
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	for _, email := range emails {
-		account, err := stub.CreateCompositeKey(userAccountType, []string{email})
+		account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{email})
 		if err != nil {
-			return shim.Error(err.Error())
+			return nil, err
 		}
-		logger.Info("account ", account)
+
+		fmt.Println("account " + account)
+
 		balance := new(UserBalance)
 		balance.UserId = email
 		balance.Balance = balancesMap[account]
 		balancesResponse = append(balancesResponse, balance)
 	}
 
-	result, err := json.Marshal(balancesResponse)
-
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	return shim.Success(result)
+	return balancesResponse, nil
 }
 
+func (t *CoinChain) allBalances(ctx contractapi.TransactionContextInterface) ([]*UserBalance, error) {
 
-func (t *CoinChain) allBalances (stub shim.ChaincodeStubInterface, args []string) pb.Response {
-
-	balancesMap := t.getMap(stub, balancesKey)
+	balancesMap := t.getMap(ctx, balancesKey)
 
 	keys := reflect.ValueOf(balancesMap).MapKeys()
-
-	logger.Info("keys", keys)
 
 	var balancesResponse []*UserBalance
 
 	for i := 0; i < len(keys); i++ {
 		account := keys[i].String()
-		//account, err := stub.CreateCompositeKey(userAccountType, []string{email})
-		//if err != nil {
-		//	return shim.Error(err.Error())
-		//}
-		logger.Info("account ", account)
+
+		fmt.Println("account " + account)
+
 		balance := new(UserBalance)
 		balance.UserId = t.trimCompositeKey(account)
 		balance.Balance = balancesMap[account]
 		balancesResponse = append(balancesResponse, balance)
 	}
 
-	//for _, key := range keys {
-	//	email := key.String()
-	//	account, err := stub.CreateCompositeKey(userAccountType, []string{email})
-	//	if err != nil {
-	//		return shim.Error(err.Error())
-	//	}
-	//	logger.Info("account ", account)
-	//	balance := new(UserBalance)
-	//	balance.UserId = email
-	//	balance.Balance = balancesMap[account]
-	//	balancesResponse = append(balancesResponse, balance)
-	//}
-
-	result, err := json.Marshal(balancesResponse)
-
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	return shim.Success(result)
+	return balancesResponse, nil
 }
 
-func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
+func getCurrentUserId(ctx contractapi.TransactionContextInterface) (string, error) {
 
 	var userId string
 
-	creatorBytes, err := stub.GetCreator()
+	creatorBytes, err := ctx.GetStub().GetCreator()
 	if err != nil {
 		return userId, err
 	}
 
-	creatorString :=fmt.Sprintf("%s",creatorBytes)
-	logger.Infof("---- creatorString: %s ", creatorString)
+	creatorString := fmt.Sprintf("%s", creatorBytes)
 
 	index := strings.Index(creatorString, "-----BEGIN CERTIFICATE-----")
 
@@ -640,7 +594,6 @@ func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
 		index = strings.Index(creatorString, "-----BEGIN -----")
 	}
 
-	logger.Infof("---- index:  %d", index)
 	certificate := creatorString[index:]
 	block, _ := pem.Decode([]byte(certificate))
 
@@ -650,50 +603,28 @@ func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
 	}
 
 	userId = cert.Subject.CommonName
-	logger.Infof("---- UserID: %v ", userId)
 	return userId, err
 }
 
-func getBaseChaincodeName(stub shim.ChaincodeStubInterface) string {
-
-	sp, err := stub.GetSignedProposal()
-	logger.Infof("sp %s", sp)
-
-	proposal, err := utils.GetProposal(sp.ProposalBytes)
-	if err != nil {
-		logger.Error("err ", err)
-	}
-
-	header, err := utils.GetHeader(proposal.GetHeader())
-	if err != nil {
-		logger.Error("err ", err)
-	}
-	//logger.Info("header ", header)
-
-	ext, err := utils.GetChaincodeHeaderExtension(header)
-	if err != nil {
-		logger.Error("err ", err)
-	}
-	logger.Info("ext.ChaincodeId.Name ", ext.ChaincodeId.Name)
-	return ext.ChaincodeId.Name
+func (t *CoinChain) getBaseChaincodeName() string {
+	return contractapi.Contract.GetName(t)
 }
 
-func (t *CoinChain) getTransactionBalancesMap (stub shim.ChaincodeStubInterface) (map[string]uint) {
+func (t *CoinChain) getTransactionBalancesMap(ctx contractapi.TransactionContextInterface) map[string]uint {
 
-	txId := stub.GetTxID()
+	txId := ctx.GetStub().GetTxID()
 
-	logger.Info("lastTxId ", lastTxId)
-	logger.Info("txId ", txId)
+	fmt.Println("lastTxId " + lastTxId)
+	fmt.Println("txId " + txId)
 
 	if txId == lastTxId {
 		return txBalancesMap
 	} else {
-		txBalancesMap = t.getMap(stub, balancesKey)
+		txBalancesMap = t.getMap(ctx, balancesKey)
 		lastTxId = txId
 	}
 	return txBalancesMap
 }
-
 
 func (t *CoinChain) parseAmountUint(amount string) uint {
 	amount32, err := strconv.ParseUint(amount, 10, 32)
@@ -708,14 +639,21 @@ func (t *CoinChain) trimCompositeKey(inputStr string) string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	result :=  reg.ReplaceAllString(inputStr, "")
+	result := reg.ReplaceAllString(inputStr, "")
 	result = strings.TrimPrefix(result, userAccountType)
 	return result
 }
 
 func main() {
-	err := shim.Start(new(CoinChain))
+
+	chaincode, err := contractapi.NewChaincode(new(CoinChain))
+
 	if err != nil {
-		logger.Errorf("Error starting Coin Chain: %s", err)
+		fmt.Printf("Error create fabcar chaincode: %s", err.Error())
+		return
+	}
+
+	if err := chaincode.Start(); err != nil {
+		fmt.Printf("Error starting fabcar chaincode: %s", err.Error())
 	}
 }
