@@ -5,9 +5,6 @@
 #
 version: '2'
 
-networks:
-  coins-network:
-
 services:
 
   ca.sjfabric.softjourn.if.ua:
@@ -30,8 +27,6 @@ services:
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
       - ./config/fabric-ca-server-config.yaml:/etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml
       - /sjfabric_volumes/ca:/app_data
-    networks:
-      - coins-network
 
   orderer.sjfabric.softjourn.if.ua:
     restart: on-failure
@@ -58,8 +53,6 @@ services:
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/msp:/var/hyperledger/orderer/msp
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls:/var/hyperledger/orderer/tls
       - /sjfabric_volumes/orderer:/var/hyperledger/production
-    networks:
-      - coins-network
 
   peer0.sjfabric.softjourn.if.ua:
     container_name: peer0.sjfabric.softjourn.if.ua
@@ -77,10 +70,11 @@ services:
       # the following setting starts chaincode containers on the same
       # bridge network as the peers
       # https://docs.docker.com/compose/networking/
-      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=artifacts_default
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=coinssjfabric_default
       - FABRIC_LOGGING_SPEC=INFO
-      - CORE_PEER_GOSSIP_USELEADERELECTION=false
-      - CORE_PEER_GOSSIP_ORGLEADER=true
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
+      - CORE_PEER_PROFILE_ENABLED=true
       # The following setting skips the gossip handshake since we are
       # are not doing mutual TLS
       - CORE_PEER_GOSSIP_SKIPHANDSHAKE=true
@@ -108,8 +102,6 @@ services:
       - /sjfabric_volumes/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
-    networks:
-      - coins-network
 
   couchdb0.sjfabric.softjourn.if.ua:
     container_name: couchdb0.sjfabric.softjourn.if.ua
@@ -123,8 +115,6 @@ services:
     # for example map it to utilize Fauxton User Interface in dev environments.
     ports:
       - "5984:5984"
-    networks:
-      - coins-network
 
 #  node.sjfabric.softjourn.if.ua:
 #    restart: on-failure

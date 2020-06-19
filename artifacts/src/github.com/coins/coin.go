@@ -223,71 +223,6 @@ func (t *CoinChain) batchTransfer(ctx contractapi.TransactionContextInterface, a
 	return nil
 }
 
-func (t *CoinChain) transferFrom(ctx contractapi.TransactionContextInterface, args []string) error {
-
-	/* args
-	0 - sender account type (user_ , foundation_)
-	1 - sender ID
-	2 - receiver account type (user_ , foundation_)
-	3 - receiver ID
-	4 - amount
-	*/
-
-	if t.getBaseChaincodeName() != "foundation" {
-		return errors.New("only \"foundation\" chaincode allowed to invoke transferFrom method")
-	}
-
-	if len(args) != 5 {
-		return errors.New("incorrect number of arguments. Expecting 5")
-	}
-
-	senderAccountType := args[0]
-	fmt.Println("sender account type " + senderAccountType)
-	sender := args[1]
-	fmt.Println("sender " + sender)
-
-	receiverAccountType := args[2]
-	fmt.Println("receiver account type " + receiverAccountType)
-	receiver := args[3]
-	fmt.Println("receiver " + receiver)
-
-	fmt.Println("amount args[4] " + args[4])
-	amount := t.parseAmountUint(args[4])
-	fmt.Println("amount " + string(amount))
-
-	if amount == 0 {
-		return errors.New("incorrect amount")
-	}
-
-	senderAccount, err := ctx.GetStub().CreateCompositeKey(senderAccountType, []string{sender})
-	if err != nil {
-		return err
-	}
-	fmt.Println("senderAccount " + senderAccount)
-
-	receiverAccount, err := ctx.GetStub().CreateCompositeKey(receiverAccountType, []string{receiver})
-	if err != nil {
-		return err
-	}
-	fmt.Println("receiverAccount " + receiverAccount)
-
-	balancesMap := t.getTransactionBalancesMap(ctx)
-
-	if balancesMap[senderAccount] < amount {
-		return errors.New("not enough coins")
-	}
-
-	balancesMap[senderAccount] -= amount
-	balancesMap[receiverAccount] += amount
-
-	err = t.saveMap(ctx, balancesKey, balancesMap)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (t *CoinChain) setCurrency(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	//Obsolete (setColor) not sure we need this. Chaincode name is currency name
@@ -501,12 +436,12 @@ func (t *CoinChain) balanceOf(ctx contractapi.TransactionContextInterface, args 
 	*/
 
 	if len(args) != 1 {
-		return -1, errors.New("incorrect number of arguments. Expecting 1")
+		return 0, errors.New("incorrect number of arguments. Expecting 1")
 	}
 
 	account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{args[0]})
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 
 	fmt.Println("account " + account)
@@ -604,10 +539,6 @@ func getCurrentUserId(ctx contractapi.TransactionContextInterface) (string, erro
 
 	userId = cert.Subject.CommonName
 	return userId, err
-}
-
-func (t *CoinChain) getBaseChaincodeName() string {
-	return contractapi.Contract.GetName(t)
 }
 
 func (t *CoinChain) getTransactionBalancesMap(ctx contractapi.TransactionContextInterface) map[string]uint {
