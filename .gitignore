@@ -41,4 +41,10 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Utility folders
 /bin
+
+# Resource folder
+/chaincode/github.com/coins/vendor
+/chaincode/github.com/coins/go.sum
+/configurations
