@@ -17,12 +17,12 @@ export CORE_PEER_MSPCONFIGPATH=${PWD}/../configurations/peerOrganizations/sjfabr
 export CORE_PEER_ADDRESS=localhost:7051
 
 # Build chaincode
-pushd ../artifacts/src/github.com/coins || exit
+pushd ../chaincode/github.com/coins || exit
 GO111MODULE=on go mod vendor
 popd || exit
 
 # Package chaincode
-../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/../artifacts/src/github.com/coins --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
+../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/../chaincode/github.com/coins --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
 
 # Install chaincode
 ../bin/peer lifecycle chaincode install ${CHAINCODE_NAME}.tar.gz -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA}
