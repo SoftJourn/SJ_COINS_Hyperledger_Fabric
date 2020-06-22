@@ -4,7 +4,7 @@ export FABRIC_CFG_PATH=${PWD}/../config/
 export CHANNEL_NAME=mychannel
 export CHAINCODE_NAME=coins
 export CHAINCODE_VERSION=2_0
-export SEQUENCE=1 # CHAINCODE_VERSION - 1
+export SEQUENCE=1 # CHAINCODE_VERSION as number minus 1
 
 export PEER_TLS=${PWD}/../configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/tls/ca.crt
 
