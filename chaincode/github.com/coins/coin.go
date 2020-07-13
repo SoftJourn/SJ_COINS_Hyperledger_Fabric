@@ -96,7 +96,7 @@ func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (str
 	return currencyName, nil
 }
 
-func (t *CoinChain) transfer(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
 	0 - accountType (user_ , foundation_)
@@ -158,7 +158,7 @@ func (t *CoinChain) transfer(ctx contractapi.TransactionContextInterface, args [
 	return nil
 }
 
-func (t *CoinChain) batchTransfer(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
 	0 - the array of the TransferRequest
@@ -223,7 +223,7 @@ func (t *CoinChain) batchTransfer(ctx contractapi.TransactionContextInterface, a
 	return nil
 }
 
-func (t *CoinChain) setCurrency(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) SetCurrency(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	//Obsolete (setColor) not sure we need this. Chaincode name is currency name
 
@@ -259,7 +259,7 @@ func (t *CoinChain) setCurrency(ctx contractapi.TransactionContextInterface, arg
 	return nil
 }
 
-func (t *CoinChain) getCurrency(ctx contractapi.TransactionContextInterface) (string, error) {
+func (t *CoinChain) GetCurrency(ctx contractapi.TransactionContextInterface) (string, error) {
 
 	currency, err := ctx.GetStub().GetState(currencyKey)
 	if err != nil {
@@ -304,7 +304,7 @@ func (t *CoinChain) saveMap(ctx contractapi.TransactionContextInterface, mapName
 	return nil
 }
 
-func (t *CoinChain) mint(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
 	0 - amount
@@ -355,7 +355,7 @@ func (t *CoinChain) mint(ctx contractapi.TransactionContextInterface, args []str
 	return nil
 }
 
-func (t *CoinChain) distribute(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) Distribute(ctx contractapi.TransactionContextInterface, args []string) error {
 
 	/* args
 	0.. n-1 - accounts
@@ -429,7 +429,7 @@ func (t *CoinChain) distribute(ctx contractapi.TransactionContextInterface, args
 	return nil
 }
 
-func (t *CoinChain) balanceOf(ctx contractapi.TransactionContextInterface, args []string) (uint, error) {
+func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, args []string) (uint, error) {
 
 	/* args
 	0 - user ID
@@ -451,7 +451,7 @@ func (t *CoinChain) balanceOf(ctx contractapi.TransactionContextInterface, args 
 	return balancesMap[account], nil
 }
 
-func (t *CoinChain) batchBalanceOf(ctx contractapi.TransactionContextInterface, args []string) ([]*UserBalance, error) {
+func (t *CoinChain) BatchBalanceOf(ctx contractapi.TransactionContextInterface, args []string) ([]*UserBalance, error) {
 
 	/* args
 	0 - the array of the user emails
@@ -490,7 +490,7 @@ func (t *CoinChain) batchBalanceOf(ctx contractapi.TransactionContextInterface, 
 	return balancesResponse, nil
 }
 
-func (t *CoinChain) allBalances(ctx contractapi.TransactionContextInterface) ([]*UserBalance, error) {
+func (t *CoinChain) AllBalances(ctx contractapi.TransactionContextInterface) ([]*UserBalance, error) {
 
 	balancesMap := t.getMap(ctx, balancesKey)
 
@@ -541,7 +541,7 @@ func getCurrentUserId(ctx contractapi.TransactionContextInterface) (string, erro
 	return userId, err
 }
 
-func (t *CoinChain) getTransactionBalancesMap(ctx contractapi.TransactionContextInterface) map[string]uint {
+func (t *CoinChain) GetTransactionBalancesMap(ctx contractapi.TransactionContextInterface) map[string]uint {
 
 	txId := ctx.GetStub().GetTxID()
 

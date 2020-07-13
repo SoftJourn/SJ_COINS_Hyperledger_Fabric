@@ -1,10 +1,10 @@
-FROM node:8
+FROM node:12.18.0
 WORKDIR /app
 COPY package.json /app
 RUN npm install
-COPY .. /app
+COPY . /app
 
-RUN mkdir -p "/app_data/fabric-client-kvs_peerCoins1" && chmod -R 777 "/app_data"
+RUN mkdir -p "/app_data/wallet" && chmod -R 777 "/app_data"
 
 ENTRYPOINT node app.js
 EXPOSE 4000

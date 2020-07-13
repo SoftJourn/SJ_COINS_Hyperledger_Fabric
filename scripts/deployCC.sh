@@ -21,6 +21,9 @@ pushd ../chaincode/github.com/coins || exit
 GO111MODULE=on go mod vendor
 popd || exit
 
+# Remove existing chaincode .tar.gz
+rm -rf ${CHAINCODE_NAME}.tar.gz
+
 # Package chaincode
 ../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/../chaincode/github.com/coins --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
 

@@ -1,14 +1,14 @@
 {
+   "chaincodeName": "coins",
+   "caName": "ca.sjfabric.softjourn.if.ua",
+   "mspId": "CoinsMSP",
    "host":"node.sjfabric.softjourn.if.ua",
    "port":"4000",
    "jwt_expiretime": "36000",
    "channelName":"mychannel",
-   "GOPATH":"../artifacts",
-   "keyValueStore":"/app_data/fabric-client-kvs_peerCoins1",
-   "eventWaitTime":"30000",
+   "keyValueStore":"/app_data/wallet",
    "logLevel": "debug",
    "logFilePath": "/app_data/logs/fabric-client.log",
-   "orderer":"grpcs://orderer.sjfabric.softjourn.if.ua:7050",
    "users":[
       {
          "username":"admin",
