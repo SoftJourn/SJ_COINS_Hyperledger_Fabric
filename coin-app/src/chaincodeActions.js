@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config.json')
 
-async function invoke(user, fcn, args) {
+async function invoke(user, fcn, args, isObject) {
     try {
         const gateway = await loadGateway(user);
         // Get the network (channel) our contract is deployed to.
@@ -13,7 +13,13 @@ async function invoke(user, fcn, args) {
 
         // Get the contract from the network.
         const contract = network.getContract(config.chaincodeName);
-        const result = await contract.submitTransaction(fcn, ...args);
+        let result;
+
+        if (isObject) {
+            result = await contract.submitTransaction(fcn, args);
+        } else {
+            result = await contract.submitTransaction(fcn, ...args);
+        }
 
         const res = result.toString();
 
@@ -36,7 +42,7 @@ async function invoke(user, fcn, args) {
     }
 }
 
-async function query(user, fcn, args) {
+async function query(user, fcn, args, isObject) {
     try {
         const gateway = await loadGateway(user);
         // Get the network (channel) our contract is deployed to.
@@ -44,7 +50,13 @@ async function query(user, fcn, args) {
 
         // Get the contract from the network.
         const contract = network.getContract(config.chaincodeName);
-        const result = await contract.evaluateTransaction(fcn, ...args);
+        let result;
+
+        if (isObject) {
+            result = await contract.evaluateTransaction(fcn, args);
+        } else {
+            result = await contract.evaluateTransaction(fcn, ...args);
+        }
 
         const res = result.toString();
 

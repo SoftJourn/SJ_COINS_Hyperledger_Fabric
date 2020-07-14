@@ -10,7 +10,6 @@ import (
 	"log"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -20,12 +19,12 @@ type CoinChain struct {
 
 type TransferRequest struct {
 	UserId string `json:"userId"`
-	Amount uint   `json:"amount"`
+	Amount int    `json:"amount"`
 }
 
 type UserBalance struct {
 	UserId  string `json:"userId"`
-	Balance uint   `json:"balance"`
+	Balance int    `json:"balance"`
 }
 
 var currencyName string
@@ -37,7 +36,7 @@ var currencyKey = "currency"
 var userAccountType = "user_"
 
 //For TransferFrom
-var txBalancesMap map[string]uint
+var txBalancesMap map[string]int
 var lastTxId string
 
 func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (string, error) {
@@ -86,7 +85,7 @@ func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (str
 	balancesMap := t.getMap(ctx, balancesKey)
 
 	if len(balancesMap) == 0 {
-		balancesMap = map[string]uint{currentUserAccount: 0}
+		balancesMap = map[string]int{currentUserAccount: 0}
 		err = t.saveMap(ctx, balancesKey, balancesMap)
 		if err != nil {
 			return currencyName, err
@@ -96,26 +95,10 @@ func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (str
 	return currencyName, nil
 }
 
-func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiverAccountType string, receiver string, amount int) error {
 
-	/* args
-	0 - accountType (user_ , foundation_)
-	1 - receiver ID
-	2 - amount
-	*/
-
-	if len(args) != 3 {
-		return errors.New("incorrect number of arguments. Expecting 3")
-	}
-
-	receiverAccountType := args[0]
 	fmt.Println("accountType: " + receiverAccountType)
-
-	receiver := args[1]
 	fmt.Println("receiver " + receiver)
-
-	fmt.Println("args[2] " + args[2])
-	amount := t.parseAmountUint(args[2])
 	fmt.Println("amount " + string(amount))
 
 	if amount == 0 {
@@ -158,18 +141,11 @@ func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, args [
 	return nil
 }
 
-func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, args []string) error {
-
-	/* args
-	0 - the array of the TransferRequest
-	*/
-
-	if len(args) != 1 {
-		return errors.New("incorrect number of arguments. Expecting 1")
-	}
+func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, transferRequestsJson string) error {
+	fmt.Println("transfer requests json: " + transferRequestsJson)
 
 	var transferRequests []TransferRequest
-	err := json.Unmarshal([]byte(args[0]), &transferRequests)
+	err := json.Unmarshal([]byte(transferRequestsJson), &transferRequests)
 
 	if err != nil {
 		return err
@@ -177,7 +153,7 @@ func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, a
 
 	fmt.Println(transferRequests)
 
-	var total uint = 0
+	var total = 0
 
 	for _, tr := range transferRequests {
 		total += tr.Amount
@@ -223,17 +199,8 @@ func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, a
 	return nil
 }
 
-func (t *CoinChain) SetCurrency(ctx contractapi.TransactionContextInterface, args []string) error {
-
-	//Obsolete (setColor) not sure we need this. Chaincode name is currency name
-
-	/* args
-	0 - currency name
-	*/
-
-	if len(args) != 1 {
-		return errors.New("incorrect number of arguments. Expecting 1")
-	}
+func (t *CoinChain) SetCurrency(ctx contractapi.TransactionContextInterface, currencyName string) error {
+	fmt.Println("currency name: " + currencyName)
 
 	minterValue, err := ctx.GetStub().GetState(minterKey)
 	if err != nil {
@@ -249,9 +216,7 @@ func (t *CoinChain) SetCurrency(ctx contractapi.TransactionContextInterface, arg
 		return errors.New("user has no permissions")
 	}
 
-	currency := args[0]
-
-	err = ctx.GetStub().PutState(currencyKey, []byte(currency))
+	err = ctx.GetStub().PutState(currencyKey, []byte(currencyName))
 	if err != nil {
 		return err
 	}
@@ -270,49 +235,9 @@ func (t *CoinChain) GetCurrency(ctx contractapi.TransactionContextInterface) (st
 	return string(currency), nil
 }
 
-func (t *CoinChain) getMap(ctx contractapi.TransactionContextInterface, mapName string) map[string]uint {
+func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int) error {
 
-	fmt.Println("------ getMap called")
-
-	mapBytes, err := ctx.GetStub().GetState(mapName)
-	if err != nil {
-		return nil
-	}
-
-	var mapObject map[string]uint
-	err = json.Unmarshal(mapBytes, &mapObject)
-	if err != nil {
-		return nil
-	}
-
-	return mapObject
-}
-
-func (t *CoinChain) saveMap(ctx contractapi.TransactionContextInterface, mapName string, mapObject map[string]uint) error {
-	fmt.Println("------ saveBalancesMap called")
-
-	balancesMapBytes, err := json.Marshal(mapObject)
-	if err != nil {
-		return err
-	}
-
-	err = ctx.GetStub().PutState(mapName, balancesMapBytes)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, args []string) error {
-
-	/* args
-	0 - amount
-	*/
-
-	if len(args) != 1 {
-		return errors.New("incorrect number of arguments. Expecting 1")
-	}
+	fmt.Println("mint amount: " + string(amount))
 
 	minterBytes, err := ctx.GetStub().GetState(minterKey)
 	if err != nil {
@@ -331,7 +256,6 @@ func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, args []str
 		return errors.New("no permissions")
 	}
 
-	amount := t.parseAmountUint(args[0])
 	if amount == 0 {
 		return errors.New("incorrect amount")
 	}
@@ -355,91 +279,11 @@ func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, args []str
 	return nil
 }
 
-func (t *CoinChain) Distribute(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, userId string) (int, error) {
 
-	/* args
-	0.. n-1 - accounts
-	n - amount
-	*/
+	fmt.Println("userId " + userId)
 
-	if len(args) < 3 {
-		return errors.New("incorrect number of arguments. Expecting at least 3")
-	}
-
-	amount := t.parseAmountUint(args[len(args)-1])
-	if amount == 0 {
-		return errors.New("incorrect amount")
-	}
-
-	accounts := args[:len(args)-1]
-
-	fmt.Println("accounts: " + strings.Join(accounts, ", "))
-	fmt.Println("amount " + string(amount))
-
-	currentUserId, err := getCurrentUserId(ctx)
-	if err != nil {
-		return err
-	}
-
-	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
-	if err != nil {
-		return err
-	}
-	fmt.Println("currentUserAccount " + currentUserAccount)
-
-	balancesMap := t.getMap(ctx, balancesKey)
-
-	if balancesMap[currentUserAccount] < amount {
-		return errors.New("not enough coins")
-	}
-
-	mean := amount / uint(len(accounts))
-	fmt.Println("mean " + string(mean))
-
-	if mean == 0 {
-		return err
-	}
-
-	var i uint = 0
-
-	fmt.Println("uint(len(accounts)) " + string(len(accounts)))
-
-	for i < uint(len(accounts)) {
-		fmt.Println("i " + string(i))
-
-		receiverAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{accounts[i]})
-		if err != nil {
-			return err
-		}
-		fmt.Println("receiverAccount " + receiverAccount)
-
-		balancesMap[currentUserAccount] -= mean
-		fmt.Println("balancesMap[currentUserAccount} " + string(balancesMap[currentUserAccount]))
-		fmt.Println("receiverAccount " + receiverAccount)
-		balancesMap[receiverAccount] += mean
-		fmt.Println("balancesMap[receiverAccount] " + string(balancesMap[receiverAccount]))
-		i += 1
-	}
-
-	err = t.saveMap(ctx, balancesKey, balancesMap)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, args []string) (uint, error) {
-
-	/* args
-	0 - user ID
-	*/
-
-	if len(args) != 1 {
-		return 0, errors.New("incorrect number of arguments. Expecting 1")
-	}
-
-	account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{args[0]})
+	account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{userId})
 	if err != nil {
 		return 0, err
 	}
@@ -451,25 +295,11 @@ func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, args 
 	return balancesMap[account], nil
 }
 
-func (t *CoinChain) BatchBalanceOf(ctx contractapi.TransactionContextInterface, args []string) ([]*UserBalance, error) {
+func (t *CoinChain) BatchBalanceOf(ctx contractapi.TransactionContextInterface, emails []string) ([]*UserBalance, error) {
 
-	/* args
-	0 - the array of the user emails
-	*/
-
-	if len(args) != 1 {
-		return nil, errors.New("incorrect number of arguments. Expecting 1")
-	}
-
-	var emails []string
+	fmt.Println("userId " + strings.Join(emails, ", "))
 
 	var balancesResponse []*UserBalance
-
-	err := json.Unmarshal([]byte(args[0]), &emails)
-
-	if err != nil {
-		return nil, err
-	}
 
 	balancesMap := t.getMap(ctx, balancesKey)
 
@@ -541,7 +371,41 @@ func getCurrentUserId(ctx contractapi.TransactionContextInterface) (string, erro
 	return userId, err
 }
 
-func (t *CoinChain) GetTransactionBalancesMap(ctx contractapi.TransactionContextInterface) map[string]uint {
+func (t *CoinChain) getMap(ctx contractapi.TransactionContextInterface, mapName string) map[string]int {
+
+	fmt.Println("------ getMap called")
+
+	mapBytes, err := ctx.GetStub().GetState(mapName)
+	if err != nil {
+		return nil
+	}
+
+	var mapObject map[string]int
+	err = json.Unmarshal(mapBytes, &mapObject)
+	if err != nil {
+		return nil
+	}
+
+	return mapObject
+}
+
+func (t *CoinChain) saveMap(ctx contractapi.TransactionContextInterface, mapName string, mapObject map[string]int) error {
+	fmt.Println("------ saveBalancesMap called")
+
+	balancesMapBytes, err := json.Marshal(mapObject)
+	if err != nil {
+		return err
+	}
+
+	err = ctx.GetStub().PutState(mapName, balancesMapBytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *CoinChain) GetTransactionBalancesMap(ctx contractapi.TransactionContextInterface) map[string]int {
 
 	txId := ctx.GetStub().GetTxID()
 
@@ -557,21 +421,15 @@ func (t *CoinChain) GetTransactionBalancesMap(ctx contractapi.TransactionContext
 	return txBalancesMap
 }
 
-func (t *CoinChain) parseAmountUint(amount string) uint {
-	amount32, err := strconv.ParseUint(amount, 10, 32)
-	if err != nil {
-		return 0
-	}
-	return uint(amount32)
-}
-
 func (t *CoinChain) trimCompositeKey(inputStr string) string {
 	reg, err := regexp.Compile("[^a-zA-Z0-9@.!#$%&'*+-/=?^_`{|}~]+")
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	result := reg.ReplaceAllString(inputStr, "")
 	result = strings.TrimPrefix(result, userAccountType)
+
 	return result
 }
 

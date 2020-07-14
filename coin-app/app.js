@@ -137,8 +137,9 @@ app.post('/enroll', async function (req, res) {
 
 // Invoke transaction on chaincode on target peers
 app.post('/invoke', async function (req, res) {
+    const isObject = req.body.isObject || false;
     const fcn = req.body.fcn;
-    const args = req.body.args;
+    const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
 
     logger.debug(`Invoke function: ${fcn} with arguments: ${args}`);
 
@@ -168,14 +169,15 @@ app.post('/invoke', async function (req, res) {
         return;
     }
 
-    let message = await chaincodeActions.invoke(req.username, fcn, args);
+    let message = await chaincodeActions.invoke(req.username, fcn, args, isObject);
     res.send(message);
 });
 
 // Invoke transaction on chaincode on target peers
 app.post('/query', async function (req, res) {
+    const isObject = req.body.isObject || false;
     const fcn = req.body.fcn;
-    const args = req.body.args;
+    const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
 
     logger.debug(`Query function: ${fcn} with arguments: ${args}`);
 
@@ -205,6 +207,6 @@ app.post('/query', async function (req, res) {
         return;
     }
 
-    let message = await chaincodeActions.query(req.username, fcn, args);
+    let message = await chaincodeActions.query(req.username, fcn, args, isObject);
     res.send(message);
 });
