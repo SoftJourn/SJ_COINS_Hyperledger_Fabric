@@ -1,0 +1,73 @@
+{
+  "name": "coins-sjfabric",
+  "version": "1.0.0",
+  "client": {
+    "organization": "CoinsOrg",
+    "credentialsStore": {
+      "path": "/app_data",
+      "cryptoStore": {
+        "path": "/app_data"
+      },
+      "wallet": "wallet"
+    },
+    "connection": {
+      "timeout": {
+        "peer": {
+          "endorser": "3000"
+        }
+      }
+    }
+  },
+  "organizations": {
+    "CoinsOrg": {
+      "mspid": "CoinsMSP",
+      "peers": [
+        "peer0.sjfabric.softjourn.if.ua"
+      ],
+      "certificateAuthorities": [
+        "ca.sjfabric.softjourn.if.ua"
+      ],
+      "adminPrivateKey": {
+        "path": "/app_data/crypto/peerOrganizations/sjfabric.softjourn.if.ua/users/Admin@sjfabric.softjourn.if.ua/msp/keystore"
+      },
+      "signedCert": {
+        "path": "/app_data/crypto/peerOrganizations/sjfabric.softjourn.if.ua/users/Admin@sjfabric.softjourn.if.ua/msp/signcerts"
+      }
+    }
+  },
+  "orderers": {
+    "orderer.sjfabric.softjourn.if.ua": {
+      "mspid": "OrdererMSP",
+      "url": "grpcs://orderer.sjfabric.softjourn.if.ua:7050",
+      "tlsCACerts": {
+        "pem": "/app_data/crypto/ordererOrganizations/sjfabric.softjourn.if.ua/msp/tlscacerts/tlsca.sjfabric.softjourn.if.ua-cert.pem"
+      }
+    }
+  },
+  "peers": {
+    "peer0.sjfabric.softjourn.if.ua": {
+      "url": "grpcs://peer0.sjfabric.softjourn.if.ua:7051",
+      "tlsCACerts": {
+        "pem": "/app_data/crypto/peerOrganization/sjfabric.softjourn.if.ua/tlsca/tlsca.sjfabric.softjourn.if.ua-cert.pem"
+      }
+    }
+  },
+  "certificateAuthorities": {
+    "ca.sjfabric.softjourn.if.ua": {
+      "url": "https://ca.sjfabric.softjourn.if.ua:7054",
+      "caName": "ca.sjfabric.softjourn.if.ua",
+      "tlsCACerts": {
+        "pem": [
+          "/app_data/crypto/peerOrganizations/sjfabric.softjourn.if.ua/ca/ca.sjfabric.softjourn.if.ua-cert.pem"
+        ]
+      },
+      "httpOptions": {
+        "verify": false
+      },
+      "registar": {
+        "enrollId": "admin",
+        "enrollSecret": "adminpw"
+      }
+    }
+  }
+}
