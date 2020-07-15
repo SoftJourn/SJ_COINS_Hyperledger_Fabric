@@ -95,31 +95,31 @@ func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (str
 	return currencyName, nil
 }
 
-func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiverAccountType string, receiver string, amount int) error {
+func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiverAccountType string, receiver string, amount int) (*UserBalance, error) {
 
 	fmt.Println("accountType: " + receiverAccountType)
 	fmt.Println("receiver " + receiver)
 	fmt.Println("amount " + string(amount))
 
 	if amount == 0 {
-		return errors.New("incorrect amount")
+		return nil, errors.New("incorrect amount")
 	}
 
 	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("currentUserAccount " + currentUserAccount)
 
 	receiverAccount, err := ctx.GetStub().CreateCompositeKey(receiverAccountType, []string{receiver})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("receiverAccount " + receiverAccount)
@@ -127,7 +127,7 @@ func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiv
 	balancesMap := t.getMap(ctx, balancesKey)
 
 	if balancesMap[currentUserAccount] < amount {
-		return errors.New("not enough coins")
+		return nil, errors.New("not enough coins")
 	}
 
 	balancesMap[currentUserAccount] -= amount
@@ -135,20 +135,25 @@ func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiv
 
 	err = t.saveMap(ctx, balancesKey, balancesMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// Do not invoke BalanceOf method. At this time ledger is not updated yet.
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = currentUserAccount
+	balancesResponse.Balance = balancesMap[currentUserAccount]
+
+	return balancesResponse, nil
 }
 
-func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, transferRequestsJson string) error {
+func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, transferRequestsJson string) (*UserBalance, error) {
 	fmt.Println("transfer requests json: " + transferRequestsJson)
 
 	var transferRequests []TransferRequest
 	err := json.Unmarshal([]byte(transferRequestsJson), &transferRequests)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println(transferRequests)
@@ -161,13 +166,13 @@ func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, t
 
 	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("currentUserAccount " + currentUserAccount)
@@ -179,13 +184,13 @@ func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, t
 	fmt.Println("currentUserBalance ", currentUserBalance)
 
 	if total > currentUserBalance {
-		return errors.New("not enough money")
+		return nil, errors.New("not enough money")
 	}
 
 	for _, tr := range transferRequests {
 		receiverAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{tr.UserId})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		balancesMap[currentUserAccount] -= tr.Amount
 		balancesMap[receiverAccount] += tr.Amount
@@ -193,55 +198,24 @@ func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, t
 
 	err = t.saveMap(ctx, balancesKey, balancesMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// Do not invoke BalanceOf method. At this time ledger is not updated yet.
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = currentUserAccount
+	balancesResponse.Balance = balancesMap[currentUserAccount]
+
+	return balancesResponse, nil
 }
 
-func (t *CoinChain) SetCurrency(ctx contractapi.TransactionContextInterface, currencyName string) error {
-	fmt.Println("currency name: " + currencyName)
-
-	minterValue, err := ctx.GetStub().GetState(minterKey)
-	if err != nil {
-		return err
-	}
-
-	currentUserId, err := getCurrentUserId(ctx)
-	if err != nil {
-		return err
-	}
-
-	if reflect.DeepEqual([]byte(currentUserId), minterValue) {
-		return errors.New("user has no permissions")
-	}
-
-	err = ctx.GetStub().PutState(currencyKey, []byte(currencyName))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (t *CoinChain) GetCurrency(ctx contractapi.TransactionContextInterface) (string, error) {
-
-	currency, err := ctx.GetStub().GetState(currencyKey)
-	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + currencyKey + "\"}"
-		return "", errors.New(jsonResp)
-	}
-
-	return string(currency), nil
-}
-
-func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int) error {
+func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int) (*UserBalance, error) {
 
 	fmt.Println("mint amount: " + string(amount))
 
 	minterBytes, err := ctx.GetStub().GetState(minterKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	minterString := string(minterBytes)
@@ -249,20 +223,20 @@ func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int
 
 	currentUserId, err := getCurrentUserId(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if currentUserId != minterString {
-		return errors.New("no permissions")
+		return nil, errors.New("no permissions")
 	}
 
 	if amount == 0 {
-		return errors.New("incorrect amount")
+		return nil, errors.New("incorrect amount")
 	}
 
 	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("currentUserAccount " + currentUserAccount)
@@ -273,26 +247,35 @@ func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int
 
 	err = t.saveMap(ctx, balancesKey, balancesMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// Do not invoke BalanceOf method. At this time ledger is not updated yet.
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = currentUserAccount
+	balancesResponse.Balance = balancesMap[currentUserAccount]
+
+	return balancesResponse, nil
 }
 
-func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, userId string) (int, error) {
+func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, userId string) (*UserBalance, error) {
 
 	fmt.Println("userId " + userId)
 
 	account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{userId})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	fmt.Println("account " + account)
 
 	balancesMap := t.getMap(ctx, balancesKey)
 
-	return balancesMap[account], nil
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = account
+	balancesResponse.Balance = balancesMap[account]
+
+	return balancesResponse, nil
 }
 
 func (t *CoinChain) BatchBalanceOf(ctx contractapi.TransactionContextInterface, emails []string) ([]*UserBalance, error) {

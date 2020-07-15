@@ -13,12 +13,13 @@ async function invoke(user, fcn, args, isObject) {
 
         // Get the contract from the network.
         const contract = network.getContract(config.chaincodeName);
+        const transaction = contract.createTransaction(fcn);
         let result;
 
         if (isObject) {
-            result = await contract.submitTransaction(fcn, args);
+            result = await transaction.submit(args);
         } else {
-            result = await contract.submitTransaction(fcn, ...args);
+            result = await transaction.submit(...args);
         }
 
         const res = result.toString();
@@ -30,7 +31,8 @@ async function invoke(user, fcn, args, isObject) {
 
         return {
             success: true,
-            payload: res
+            transactionID: transaction.getTransactionId(),
+            payload: res ? JSON.parse(res) : res
         };
 
     } catch (error) {
@@ -50,12 +52,13 @@ async function query(user, fcn, args, isObject) {
 
         // Get the contract from the network.
         const contract = network.getContract(config.chaincodeName);
+        const transaction = contract.createTransaction(fcn);
         let result;
 
         if (isObject) {
-            result = await contract.evaluateTransaction(fcn, args);
+            result = await transaction.evaluate(args);
         } else {
-            result = await contract.evaluateTransaction(fcn, ...args);
+            result = await transaction.evaluate(...args);
         }
 
         const res = result.toString();
@@ -67,11 +70,11 @@ async function query(user, fcn, args, isObject) {
 
         return {
             success: true,
-            payload: res
+            transactionID: transaction.getTransactionId(),
+            payload: res ? JSON.parse(res) : res
         };
 
     } catch (error) {
-        console.error(`Failed to submit transaction: ${error}`);
         return {
             success: false,
             message: `Error: ${error}`

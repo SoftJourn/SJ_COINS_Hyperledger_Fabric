@@ -135,7 +135,7 @@ app.post('/enroll', async function (req, res) {
     }
 });
 
-// Invoke transaction on chaincode on target peers
+// Invoke transaction on chaincode
 app.post('/invoke', async function (req, res) {
     const isObject = req.body.isObject || false;
     const fcn = req.body.fcn;
@@ -155,25 +155,11 @@ app.post('/invoke', async function (req, res) {
         return;
     }
 
-    const adminEnrollResult = await adminActions.enroll();
-    if (!adminEnrollResult.success) {
-        res.statusCode = 400;
-        res.json(adminEnrollResult)
-        return;
-    }
-
-    const userEnrollResult = await userActions.enroll(req.username);
-    if (!userEnrollResult.success) {
-        res.statusCode = 400;
-        res.json(userEnrollResult)
-        return;
-    }
-
     let message = await chaincodeActions.invoke(req.username, fcn, args, isObject);
     res.send(message);
 });
 
-// Invoke transaction on chaincode on target peers
+// Query transaction on chaincode
 app.post('/query', async function (req, res) {
     const isObject = req.body.isObject || false;
     const fcn = req.body.fcn;
@@ -190,20 +176,6 @@ app.post('/query', async function (req, res) {
     if (!args) {
         res.statusCode = 400;
         res.json(getErrorMessage('\'args\''));
-        return;
-    }
-
-    const adminEnrollResult = await adminActions.enroll();
-    if (!adminEnrollResult.success) {
-        res.statusCode = 400;
-        res.json(adminEnrollResult)
-        return;
-    }
-
-    const userEnrollResult = await userActions.enroll(req.username);
-    if (!userEnrollResult.success) {
-        res.statusCode = 400;
-        res.json(userEnrollResult)
         return;
     }
 
