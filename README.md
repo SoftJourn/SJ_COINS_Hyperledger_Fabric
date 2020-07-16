@@ -29,7 +29,7 @@ Replace file path under tlsCACerts::pem with corresponding file content like
 ``
  * Run **docker-compose up** to start network
  * Run **scripts/createChannel.sh** to create mychannel
- * Run **scripts/deployCC.sh** to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter
+ * Run **scripts/deployCC.sh** to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account
  
 ### Stop network
  * Press **Ctrl + C** to stop running network containers
