@@ -209,6 +209,143 @@ func (t *CoinChain) BatchTransfer(ctx contractapi.TransactionContextInterface, t
 	return balancesResponse, nil
 }
 
+func (t *CoinChain) Refund(ctx contractapi.TransactionContextInterface, projectId string, receiver string, amount int) (*UserBalance, error) {
+
+	fmt.Println("receiver " + receiver)
+	fmt.Println("amount " + string(amount))
+
+	if amount == 0 {
+		return nil, errors.New("incorrect amount")
+	}
+
+	currentUserId, err := getCurrentUserId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	minterBytes, err := ctx.GetStub().GetState(minterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	minterString := string(minterBytes)
+	fmt.Println("minter " + minterString)
+
+	if currentUserId != minterString {
+		return nil, errors.New("no permissions")
+	}
+
+	projectAccount, err := ctx.GetStub().CreateCompositeKey("project_", []string{projectId})
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("projectAccount " + projectAccount)
+
+	receiverAccount, err := ctx.GetStub().CreateCompositeKey("user_", []string{receiver})
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("receiverAccount " + receiverAccount)
+
+	balancesMap := t.getMap(ctx, balancesKey)
+
+	if balancesMap[projectAccount] < amount {
+		return nil, errors.New("not enough coins")
+	}
+
+	balancesMap[projectAccount] -= amount
+	balancesMap[receiverAccount] += amount
+
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// Do not invoke BalanceOf method. At this time ledger is not updated yet.
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = projectAccount
+	balancesResponse.Balance = balancesMap[projectAccount]
+
+	return balancesResponse, nil
+}
+
+func (t *CoinChain) BatchRefund(ctx contractapi.TransactionContextInterface, projectId string, transferRequestsJson string) (*UserBalance, error) {
+	fmt.Println("refund requests json: " + transferRequestsJson)
+
+	var transferRequests []TransferRequest
+	err := json.Unmarshal([]byte(transferRequestsJson), &transferRequests)
+
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(transferRequests)
+
+	var total = 0
+
+	for _, tr := range transferRequests {
+		total += tr.Amount
+	}
+
+	currentUserId, err := getCurrentUserId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	minterBytes, err := ctx.GetStub().GetState(minterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	minterString := string(minterBytes)
+	fmt.Println("minter " + minterString)
+
+	if currentUserId != minterString {
+		return nil, errors.New("no permissions")
+	}
+
+	projectAccount, err := ctx.GetStub().CreateCompositeKey("project_", []string{projectId})
+
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("projectAccount " + projectAccount)
+
+	balancesMap := t.getMap(ctx, balancesKey)
+
+	currentProjectBalance := balancesMap[projectAccount]
+
+	fmt.Println("currentProjectBalance ", currentProjectBalance)
+
+	if total != currentProjectBalance {
+		return nil, errors.New("all money must be refunded")
+	}
+
+	for _, tr := range transferRequests {
+		receiverAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{tr.UserId})
+		if err != nil {
+			return nil, err
+		}
+		balancesMap[projectAccount] -= tr.Amount
+		balancesMap[receiverAccount] += tr.Amount
+	}
+
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// Do not invoke BalanceOf method. At this time ledger is not updated yet.
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = projectAccount
+	balancesResponse.Balance = balancesMap[projectAccount]
+
+	return balancesResponse, nil
+}
+
 func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int) (*UserBalance, error) {
 
 	fmt.Println("mint amount: " + string(amount))
@@ -258,11 +395,12 @@ func (t *CoinChain) Mint(ctx contractapi.TransactionContextInterface, amount int
 	return balancesResponse, nil
 }
 
-func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, userId string) (*UserBalance, error) {
+func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, accountType string, accountId string) (*UserBalance, error) {
 
-	fmt.Println("userId " + userId)
+	fmt.Println("accountType " + accountType)
+	fmt.Println("accountId " + accountId)
 
-	account, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{userId})
+	account, err := ctx.GetStub().CreateCompositeKey(accountType, []string{accountId})
 	if err != nil {
 		return nil, err
 	}

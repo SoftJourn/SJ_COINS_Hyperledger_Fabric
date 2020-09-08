@@ -51,11 +51,13 @@ sleep 10
 
 sleep 10
 
-# Query commited state
+# Query committed state
 ../bin/peer lifecycle chaincode querycommitted --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME}
 
 # Invoke init method
 ../bin/peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --isInit -c '{"function":"initLedger","Args":["sj_coin", "SJCoin"]}' --peerAddresses localhost:7051 --tlsRootCertFiles ${PEER_TLS}
+
+sleep 10
 
 # Register minter via web app
 curl -d '{"username":"sj_coin","orgName":"CoinsOrg"}' -H "Content-Type: application/json" -X POST "http://localhost:4000/enroll" -o log.txt
