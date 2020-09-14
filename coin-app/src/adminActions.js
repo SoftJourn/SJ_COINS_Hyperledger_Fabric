@@ -20,8 +20,8 @@ async function enroll() {
 
         // Create a new CA client for interacting with the CA.
         const caInfo = ccp['certificateAuthorities'][config.caName];
-        const caTLSCACerts = caInfo['tlsCACerts'].pem;
-        const ca = new FabricCAServices(caInfo.url, {trustedRoots: caTLSCACerts, verify: false}, caInfo.caName);
+        const caTLSCACerts = fs.readFileSync(caInfo['tlsCACerts'].path[0]);
+        const ca = new FabricCAServices(caInfo.url, {trustedRoots: Buffer.from(caTLSCACerts), verify: false}, caInfo.caName);
 
         // Create a new file system based wallet for managing identities.
         const wallet = await Wallets.newFileSystemWallet(config.keyValueStore);

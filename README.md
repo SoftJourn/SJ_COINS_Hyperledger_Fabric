@@ -11,23 +11,7 @@ This repo includes:
  * Install the latest Docker images and Binaries from https://hyperledger-fabric.readthedocs.io/en/latest/install.html
  * Copy Binaries from **bin** folder into current project
  * Run **scripts/prepareResources.sh** to create all necessary configurations
- * Manually edit **coin-app/src/connection-profile-template.json** and rename file to **connection-profile.json**:
-
-Replace file path under tlsCACerts::pem with corresponding file content like
-``
-"tlsCACerts": {
-    "pem": "/app_data/crypto/ordererOrganizations/sjfabric.softjourn.if.ua/msp/tlscacerts/tlsca.sjfabric.softjourn.if.ua-cert.pem"
-}
-``
-
- to
-
-``
-  "tlsCACerts": {
-    "pem": "-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----\n"
-  }
-``
- * Edit .env file, set COMPOSE_PROJECT_NAME to match folder name with no space and dashes, like 'coins-sjfabric' goes to 'coinssjfabric'  
+ * Edit .env file, set COMPOSE_PROJECT_NAME to match folder name with no space and dashes, like 'coins-sjfabric' to 'coinssjfabric'  
  * Run **docker-compose up** to start network
  * Run **scripts/createChannel.sh** to create mychannel
  * Run **scripts/deployCC.sh** to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account
