@@ -5,6 +5,9 @@
 #
 version: '2'
 
+networks:
+  coins:
+
 services:
 
   ca.sjfabric.softjourn.if.ua:
@@ -28,6 +31,8 @@ services:
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
       - ./config/fabric-ca-server-config.yaml:/etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml
       - /sjfabric_volumes/ca:/app_data
+    networks:
+      - coins
 
   orderer.sjfabric.softjourn.if.ua:
     restart: on-failure
@@ -54,6 +59,8 @@ services:
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/msp:/var/hyperledger/orderer/msp
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls:/var/hyperledger/orderer/tls
       - /sjfabric_volumes/orderer:/var/hyperledger/production
+    networks:
+      - coins
 
   peer0.sjfabric.softjourn.if.ua:
     container_name: peer0.sjfabric.softjourn.if.ua
@@ -71,7 +78,7 @@ services:
       # the following setting starts chaincode containers on the same
       # bridge network as the peers
       # https://docs.docker.com/compose/networking/
-      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=coinssjfabric_default
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=${COMPOSE_PROJECT_NAME}_coins
       - FABRIC_LOGGING_SPEC=INFO
       - CORE_PEER_GOSSIP_USELEADERELECTION=true
       - CORE_PEER_GOSSIP_ORGLEADER=false
@@ -104,6 +111,8 @@ services:
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
       - couchdb0.sjfabric.softjourn.if.ua
+    networks:
+      - coins
 
   couchdb0.sjfabric.softjourn.if.ua:
     container_name: couchdb0.sjfabric.softjourn.if.ua
@@ -113,6 +122,8 @@ services:
       - COUCHDB_PASSWORD=adminpw
     ports:
       - "5984:5984"
+    networks:
+      - coins
 
   node.sjfabric.softjourn.if.ua:
     restart: on-failure
@@ -127,3 +138,5 @@ services:
     volumes:
       - /sjfabric_volumes/node_client:/app_data
       - ./configurations:/app_data/crypto
+    networks:
+      - coins
