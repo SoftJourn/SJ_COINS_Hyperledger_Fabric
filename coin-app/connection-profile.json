@@ -48,7 +48,7 @@
     "peer0.sjfabric.softjourn.if.ua": {
       "url": "grpcs://peer0.sjfabric.softjourn.if.ua:7051",
       "tlsCACerts": {
-        "path": "/app_data/crypto/peerOrganization/sjfabric.softjourn.if.ua/tlsca/tlsca.sjfabric.softjourn.if.ua-cert.pem"
+        "path": "/app_data/crypto/peerOrganizations/sjfabric.softjourn.if.ua/tlsca/tlsca.sjfabric.softjourn.if.ua-cert.pem"
       }
     }
   },
