@@ -1,0 +1,18 @@
+{
+   "chaincodeName": "coins",
+   "caName": "ca.sjfabric.softjourn.if.ua",
+   "mspId": "CoinsMSP",
+   "host":"node.sjfabric.softjourn.if.ua",
+   "port":"4000",
+   "jwt_expiretime": "36000",
+   "channelName":"mychannel",
+   "keyValueStore":"/app_data/wallet",
+   "logLevel": "debug",
+   "logFilePath": "/app_data/logs/fabric-client.log",
+   "users":[
+      {
+         "username":"admin",
+         "secret":"adminpw"
+      }
+   ]
+}

@@ -1,0 +1,142 @@
+#
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+networks:
+  coins:
+
+services:
+
+  ca.sjfabric.softjourn.if.ua:
+    restart: on-failure
+    container_name: ca.sjfabric.softjourn.if.ua
+    image: hyperledger/fabric-ca:latest
+    environment:
+      - FABRIC_CA_SERVER_DEBUG=false
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.sjfabric.softjourn.if.ua-cert.pem
+      - FABRIC_CA_SERVER_CA_KEYFILE=/etc/hyperledger/fabric-ca-server-config/priv_sk
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.sjfabric.softjourn.if.ua-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/priv_sk
+      - FABRIC_CA_SERVER_CA_NAME=ca.sjfabric.softjourn.if.ua
+      - FABRIC_CA_SERVER_PORT=7054
+    ports:
+      - "7054:7054"
+    command: sh -c 'fabric-ca-server start -b admin:adminpw -d -c /etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml'
+    volumes:
+      - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
+      - ./config/fabric-ca-server-config.yaml:/etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml
+      - /sjfabric_volumes/ca:/app_data
+    networks:
+      - coins
+
+  orderer.sjfabric.softjourn.if.ua:
+    restart: on-failure
+    container_name: orderer.sjfabric.softjourn.if.ua
+    image: hyperledger/fabric-orderer:latest
+    environment:
+      - FABRIC_LOGGING_SPEC=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_LISTENPORT=7050
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      - ORDERER_GENERAL_GENESISFILE=/etc/hyperledger/configtx/genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      - ORDERER_GENERAL_TLS_ENABLED=true
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/orderers
+    command: orderer
+    ports:
+      - 7050:7050
+    volumes:
+      - ./configurations/system-genesis-block/genesis.block:/etc/hyperledger/configtx/genesis.block
+      - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/msp:/var/hyperledger/orderer/msp
+      - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls:/var/hyperledger/orderer/tls
+      - /sjfabric_volumes/orderer:/var/hyperledger/production
+    networks:
+      - coins
+
+  peer0.sjfabric.softjourn.if.ua:
+    container_name: peer0.sjfabric.softjourn.if.ua
+    image: hyperledger/fabric-peer:latest
+    environment:
+      - CORE_PEER_ID=peer0.sjfabric.softjourn.if.ua
+      - CORE_PEER_LOCALMSPID=CoinsMSP
+      - CORE_PEER_ADDRESS=peer0.sjfabric.softjourn.if.ua:7051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.sjfabric.softjourn.if.ua:7052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.sjfabric.softjourn.if.ua:7051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.sjfabric.softjourn.if.ua:7051
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      # the following setting starts chaincode containers on the same
+      # bridge network as the peers
+      # https://docs.docker.com/compose/networking/
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=${COMPOSE_PROJECT_NAME}_coins
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
+      - CORE_PEER_PROFILE_ENABLED=true
+      # The following setting skips the gossip handshake since we are
+      # are not doing mutual TLS
+      - CORE_PEER_GOSSIP_SKIPHANDSHAKE=true
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb0.sjfabric.softjourn.if.ua:5984
+      # The CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME and CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD
+      # provide the credentials for ledger to connect to CouchDB.  The username and password must
+      # match the username and password set for the associated CouchDB.
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    ports:
+      - 7051:7051
+      - 7053:7053
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/msp:/etc/hyperledger/fabric/msp
+      - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/tls:/etc/hyperledger/fabric/tls
+      - /sjfabric_volumes/peer0:/var/hyperledger/production
+    depends_on:
+      - orderer.sjfabric.softjourn.if.ua
+      - couchdb0.sjfabric.softjourn.if.ua
+    networks:
+      - coins
+
+  couchdb0.sjfabric.softjourn.if.ua:
+    container_name: couchdb0.sjfabric.softjourn.if.ua
+    image: couchdb:3.1
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - "5984:5984"
+    networks:
+      - coins
+
+  node.sjfabric.softjourn.if.ua:
+    restart: on-failure
+    container_name: node.sjfabric.softjourn.if.ua
+    hostname: node.sjfabric.softjourn.if.ua
+    build: ./coin-app/
+    image: node
+    environment:
+      - HFC_LOGGING={"info":"console"}
+    ports:
+      - 4000:4000
+    volumes:
+      - /sjfabric_volumes/node_client:/app_data
+      - ./configurations:/app_data/crypto
+    networks:
+      - coins

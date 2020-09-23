@@ -1,0 +1,29 @@
+{
+  "name": "sjfabric",
+  "version": "1.0.0",
+  "description": "SJ Fabric application",
+  "main": "app.js",
+  "keywords": [
+    "fabric-client app",
+    "v1.0 fabric nodesdk"
+  ],
+  "engines": {
+    "node": ">=8",
+    "npm": ">=5"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.5",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "express-bearer-token": "^2.4.0",
+    "express-jwt": "^5.3.3",
+    "express-session": "^1.17.1",
+    "fabric-ca-client": "^2.1.0",
+    "fabric-network": "^2.1.0",
+    "fs-extra": "^9.0.1",
+    "jsonwebtoken": "^8.5.1",
+    "log4js": "^6.3.0"
+  }
+}
