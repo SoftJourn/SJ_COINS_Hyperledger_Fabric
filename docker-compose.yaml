@@ -30,7 +30,7 @@ services:
     volumes:
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
       - ./config/fabric-ca-server-config.yaml:/etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml
-      - /sjfabric_volumes/ca:/app_data
+      - /Users/vlad/Job/.tmp/ca:/app_data
     networks:
       - coins
 
@@ -58,7 +58,7 @@ services:
       - ./configurations/system-genesis-block/genesis.block:/etc/hyperledger/configtx/genesis.block
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/msp:/var/hyperledger/orderer/msp
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls:/var/hyperledger/orderer/tls
-      - /sjfabric_volumes/orderer:/var/hyperledger/production
+      - /Users/vlad/Job/.tmp/orderer:/var/hyperledger/production
     networks:
       - coins
 
@@ -107,7 +107,7 @@ services:
       - /var/run/:/host/var/run/
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/msp:/etc/hyperledger/fabric/msp
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/tls:/etc/hyperledger/fabric/tls
-      - /sjfabric_volumes/peer0:/var/hyperledger/production
+      - /Users/vlad/Job/.tmp/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
       - couchdb0.sjfabric.softjourn.if.ua
@@ -136,7 +136,7 @@ services:
     ports:
       - 4000:4000
     volumes:
-      - /sjfabric_volumes/node_client:/app_data
+      - /Users/vlad/Job/.tmp/node_client:/app_data
       - ./configurations:/app_data/crypto
     networks:
       - coins
