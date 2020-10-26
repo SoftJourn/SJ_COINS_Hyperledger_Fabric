@@ -1,9 +1,13 @@
 package main
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
@@ -55,10 +59,16 @@ var userAccountType string = "user_"
 var foundationsKey string = "foundations"
 
 func main() {
-	// err := shim.Start(new(FoundationChain))
-	// if err != nil {
-	// 	logger.Errorf("Error starting Foundation chaincode: %s", err)
-	// }
+	chaincode, err := contractapi.NewChaincode(new(FoundationChain))
+
+	if err != nil {
+		fmt.Printf("Error create fabcar chaincode: %s", err.Error())
+		return
+	}
+
+	if err := chaincode.Start(); err != nil {
+		fmt.Printf("Error starting fabcar chaincode: %s", err.Error())
+	}
 }
 
 func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface) error {
@@ -111,186 +121,190 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 // 	return shim.Error("Invalid invoke function name.")
 // }
 
-// func (t *FoundationChain) createFoundation(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInterface, args []string) error {
 
-// 	/* args
-// 	0 - foundation Name
-// 	1 - admin account
-// 	2 - foundation creator
-// 	3 - Goal
-// 	4 - Deadline Minutes
-// 	5 - Close on reached goal
-// 	6 - withdraw allowed
-// 	7 - Currency
-// 	... n - accept currencies
-// 	*/
+	/* args
+	0 - foundation Name
+	1 - admin account
+	2 - foundation creator
+	3 - Goal
+	4 - Deadline Minutes
+	5 - Close on reached goal
+	6 - withdraw allowed
+	7 - Currency
+	... n - accept currencies
+	*/
 
-// 	if len(args) < 9 {
-// 		return shim.Error("Incorrect number of arguments. Expecting at least 9")
-// 	}
+	stub := ctx.GetStub()
 
-// 	foundations, err := getFoundations(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	if len(args) < 9 {
+		return errors.New("Incorrect number of arguments. Expecting at least 9")
+	}
 
-// 	_, exist := foundations[args[0]]
-// 	if exist {
-// 		return shim.Error("Foundation already exists.")
-// 	}
+	foundations, err := getFoundations(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// 	foundation := Foundation{}
-// 	foundation.Name = args[0]
-// 	logger.Info("foundationName: ", foundation.Name)
+	_, exist := foundations[args[0]]
+	if exist {
+		return errors.New("Foundation already exists")
+	}
 
-// 	foundation.AdminID = args[1]
-// 	logger.Info("admin ID: ", foundation.AdminID)
+	foundation := Foundation{}
+	foundation.Name = args[0]
+	fmt.Println("foundationName: ", foundation.Name)
 
-// 	foundation.CreatorId = args[2]
-// 	logger.Info("creator ID: ", foundation.CreatorId)
+	foundation.AdminID = args[1]
+	fmt.Println("admin ID: ", foundation.AdminID)
 
-// 	fundingGoalArg, err := strconv.ParseUint(args[3], 10, 32)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
-// 	foundation.FundingGoal = uint(fundingGoalArg)
-// 	logger.Info("funding Goal: ", foundation.FundingGoal)
+	foundation.CreatorId = args[2]
+	fmt.Println("creator ID: ", foundation.CreatorId)
 
-// 	minutesInt, err := strconv.ParseInt(args[4], 10, 32)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
-// 	duration := time.Minute * time.Duration(minutesInt)
-// 	currentTime := time.Now()
-// 	foundation.Deadline = currentTime.Add(duration)
-// 	logger.Info("deadline: ", foundation.Deadline.Format(time.RFC3339))
+	fundingGoalArg, err := strconv.ParseUint(args[3], 10, 32)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+	foundation.FundingGoal = uint(fundingGoalArg)
+	fmt.Println("funding Goal: ", foundation.FundingGoal)
 
-// 	closeOnGoal, err := strconv.ParseBool(args[5])
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	minutesInt, err := strconv.ParseInt(args[4], 10, 32)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+	duration := time.Minute * time.Duration(minutesInt)
+	currentTime := time.Now()
+	foundation.Deadline = currentTime.Add(duration)
+	fmt.Println("deadline: ", foundation.Deadline.Format(time.RFC3339))
 
-// 	foundation.CloseOnGoalReached = closeOnGoal
-// 	logger.Info("closeOnGoalReached: ", foundation.CloseOnGoalReached)
+	closeOnGoal, err := strconv.ParseBool(args[5])
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// 	withdrawalAllowed, err := strconv.ParseBool(args[6])
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	foundation.CloseOnGoalReached = closeOnGoal
+	fmt.Println("closeOnGoalReached: ", foundation.CloseOnGoalReached)
 
-// 	foundation.WithdrawalAllowed = withdrawalAllowed
+	withdrawalAllowed, err := strconv.ParseBool(args[6])
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// 	foundation.MainCurrency = args[7]
-// 	logger.Info("Main currency: ", foundation.MainCurrency)
+	foundation.WithdrawalAllowed = withdrawalAllowed
 
-// 	currencies := args[8:]
-// 	logger.Info("currencies: ", currencies)
+	foundation.MainCurrency = args[7]
+	fmt.Println("Main currency: ", foundation.MainCurrency)
 
-// 	foundation.AcceptCurrencies = make(map[string]bool)
-// 	for _, v := range currencies {
-// 		foundation.AcceptCurrencies[v] = true
-// 	}
-// 	logger.Info("Accept Currencies: ", foundation.AcceptCurrencies)
+	currencies := args[8:]
+	fmt.Println("currencies: ", currencies)
 
-// 	foundation.DonationsMapOld = make(map[string]uint)
-// 	foundation.DonationsMap = make(map[int]Donation)
-// 	foundation.WithdrawDetailsMap = make(map[int]WithdrawDetails)
-// 	foundation.AllowanceMap = make(map[string]uint)
-// 	foundations[foundation.Name] = foundation
-// 	err = saveFoundations(stub, foundations)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	foundation.AcceptCurrencies = make(map[string]bool)
+	for _, v := range currencies {
+		foundation.AcceptCurrencies[v] = true
+	}
+	fmt.Println("Accept Currencies: ", foundation.AcceptCurrencies)
 
-// 	return shim.Success(nil)
-// }
+	foundation.DonationsMapOld = make(map[string]uint)
+	foundation.DonationsMap = make(map[int]Donation)
+	foundation.WithdrawDetailsMap = make(map[int]WithdrawDetails)
+	foundation.AllowanceMap = make(map[string]uint)
+	foundations[foundation.Name] = foundation
+	err = saveFoundations(stub, foundations)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// func (t *FoundationChain) donate(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	return nil
+}
 
-// 	/* args
-// 	0 - currency name (docker container name - coin)
-// 	1 - amount
-// 	2 - foundation name
-// 	*/
+func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
 
-// 	if len(args) != 3 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 3")
-// 	}
+	/* args
+	0 - currency name (docker container name - coin)
+	1 - amount
+	2 - foundation name
+	*/
 
-// 	foundations, err := getFoundations(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	stub := ctx.GetStub()
 
-// 	foundation, exist := foundations[args[2]]
-// 	if !exist {
-// 		return shim.Error("Foundation does not exist.")
-// 	}
+	if len(args) != 3 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3")
+	}
 
-// 	if foundation.IsContractClosed {
-// 		return shim.Error("Foundation is closed.")
-// 	}
+	foundations, err := getFoundations(stub)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
 
-// 	currency := args[0]
-// 	logger.Info("Currency (chaincode) Name: ", currency)
+	foundation, exist := foundations[args[2]]
+	if !exist {
+		return nil, errors.New("Foundation does not exist")
+	}
 
-// 	logger.Info("acceptCurrencies ", foundation.AcceptCurrencies)
-// 	if !foundation.AcceptCurrencies[currency] {
-// 		return shim.Error("Can not accept currency " + currency)
-// 	}
+	if foundation.IsContractClosed {
+		return nil, errors.New("Foundation is closed")
+	}
 
-// 	amount := t.parseAmountUint(args[1])
-// 	logger.Info("amount: ", amount)
+	currency := args[0]
+	fmt.Println("Currency (chaincode) Name: ", currency)
 
-// 	if amount == 0 {
-// 		return shim.Error("Error. Amount must be > 0")
-// 	}
+	fmt.Println("acceptCurrencies ", foundation.AcceptCurrencies)
+	if !foundation.AcceptCurrencies[currency] {
+		return nil, errors.New("Can not accept currency " + currency)
+	}
 
-// 	logger.Info("Invoke Transfer method on: ", currency)
-// 	queryArgs := util.ToChaincodeArgs("transfer", foundationAccountType, foundation.Name, args[1])
-// 	response := stub.InvokeChaincode(currency, queryArgs, channelName)
-// 	logger.Info("Transfer Response status: ", response.Status)
+	amount := t.parseAmountUint(args[1])
+	fmt.Println("amount: ", amount)
 
-// 	if response.Status == shim.OK {
+	if amount == 0 {
+		return nil, errors.New("Error. Amount must be > 0")
+	}
 
-// 		currentUserId, err := getCurrentUserId(stub)
-// 		if err != nil {
-// 			return shim.Error(err.Error())
-// 		}
+	fmt.Println("Invoke Transfer method on: ", currency)
+	queryArgs := util.ToChaincodeArgs("transfer", foundationAccountType, foundation.Name, args[1])
+	response := stub.InvokeChaincode(currency, queryArgs, channelName)
+	fmt.Println("Transfer Response status: ", response.Status)
 
-// 		donation := Donation{
-// 			UserId:          currentUserId,
-// 			UserAccountType: userAccountType,
-// 			Currency:        currency,
-// 			Amount:          amount,
-// 		}
+	if response.Status == shim.OK {
 
-// 		foundation.DonationsMap[len(foundation.DonationsMap)+1] = donation
+		currentUserId, err := getCurrentUserId(stub)
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
 
-// 		donationKey, err := stub.CreateCompositeKey(currency, []string{userAccountType, currentUserId})
-// 		if err != nil {
-// 			return shim.Error(err.Error())
-// 		}
+		donation := Donation{
+			UserId:          currentUserId,
+			UserAccountType: userAccountType,
+			Currency:        currency,
+			Amount:          amount,
+		}
 
-// 		foundation.DonationsMapOld[donationKey] += amount
-// 		foundation.CollectedAmount += amount
-// 		logger.Info(foundation.Name, " - foundation.CollectedAmount ", foundation.CollectedAmount)
+		foundation.DonationsMap[len(foundation.DonationsMap)+1] = donation
+
+		donationKey, err := stub.CreateCompositeKey(currency, []string{userAccountType, currentUserId})
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
+
+		foundation.DonationsMapOld[donationKey] += amount
+		foundation.CollectedAmount += amount
+		fmt.Println(foundation.Name, " - foundation.CollectedAmount ", foundation.CollectedAmount)
 
 // 		checkGoalReached(&foundation)
 
 // 		foundations[foundation.Name] = foundation
 // 		err = saveFoundations(stub, foundations)
 // 		if err != nil {
-// 			return shim.Error(err.Error())
+// 			return nil, errors.New(err.Error())
 // 		}
 
-// 		return shim.Success([]byte(strconv.FormatUint(uint64(foundation.CollectedAmount), 10)))
-// 	} else {
-// 		return shim.Error(response.Message)
+// 		return []byte(strconv.FormatUint(uint64(foundation.CollectedAmount), 10)), nil
 // 	}
+
+// 	return nil, errors.New(response.Message)
 // }
 
-// func (t *FoundationChain) closeFoundation(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+// // func (t *FoundationChain) closeFoundation(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
 // 	/* args
 // 	0 - foundation name
@@ -312,22 +326,22 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 // 		return shim.Error("Foundation does not exist.")
 // 	}
 
-// 	checkGoalReached(&foundation)
+	// checkGoalReached(&foundation)
 
-// 	if foundation.IsContractClosed {
-// 		return shim.Error("Failed. Foundation is already closed.")
-// 	}
+	// if foundation.IsContractClosed {
+	// 	return shim.Error("Failed. Foundation is already closed.")
+	// }
 
-// 	currentUserId, err := getCurrentUserId(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	// currentUserId, err := getCurrentUserId(stub)
+	// if err != nil {
+	// 	return shim.Error(err.Error())
+	// }
 
-// 	if currentUserId != foundation.AdminID {
-// 		return shim.Error("Failed. Only admin can close foundation.")
-// 	}
+	// if currentUserId != foundation.AdminID {
+	// 	return shim.Error("Failed. Only admin can close foundation.")
+	// }
 
-// 	//TODO Define Return donations flow
+	//TODO Define Return donations flow
 // 	if foundation.FundingGoalReached {
 // 		foundation.ContractRemains = foundation.CollectedAmount
 // 		logger.Info(foundation.Name, " - Contract Remains: ", foundation.ContractRemains)
@@ -564,13 +578,13 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 
 // }
 
-// func (t *FoundationChain) parseAmountUint(amount string) uint {
-// 	amount32, err := strconv.ParseUint(amount, 10, 32)
-// 	if err != nil {
-// 		return 0
-// 	}
-// 	return uint(amount32)
-// }
+func (t *FoundationChain) parseAmountUint(amount string) uint {
+	amount32, err := strconv.ParseUint(amount, 10, 32)
+	if err != nil {
+		return 0
+	}
+	return uint(amount32)
+}
 
 // // TODO: What it should do?
 // func (t *FoundationChain) receiveApproval(stub shim.ChaincodeStubInterface, args []string) pb.Response {
@@ -586,64 +600,64 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 // //	return shim.Success(nil)
 // //}
 
-// // Check goal is reached.
-// func checkGoalReached(foundation *Foundation) bool {
+// Check goal is reached.
+func checkGoalReached(foundation *Foundation) bool {
 
-// 	if foundation.CollectedAmount >= foundation.FundingGoal {
-// 		foundation.FundingGoalReached = true
-// 	}
+	if foundation.CollectedAmount >= foundation.FundingGoal {
+		foundation.FundingGoalReached = true
+	}
 
-// 	if foundation.CloseOnGoalReached && (foundation.FundingGoalReached || time.Now().After(foundation.Deadline)) {
-// 		foundation.ContractRemains = foundation.CollectedAmount
-// 		foundation.IsContractClosed = true
-// 	}
+	if foundation.CloseOnGoalReached && (foundation.FundingGoalReached || time.Now().After(foundation.Deadline)) {
+		foundation.ContractRemains = foundation.CollectedAmount
+		foundation.IsContractClosed = true
+	}
 
-// 	logger.Info(foundation.Name, " - FundingGoalReached: ", foundation.FundingGoalReached)
-// 	logger.Info(foundation.Name, " -   isContractClosed: ", foundation.IsContractClosed)
+	fmt.Println(foundation.Name, " - FundingGoalReached: ", foundation.FundingGoalReached)
+	fmt.Println(foundation.Name, " -   isContractClosed: ", foundation.IsContractClosed)
 
-// 	return foundation.FundingGoalReached
-// }
+	return foundation.FundingGoalReached
+}
 
-// func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
+func getCurrentUserId(stub shim.ChaincodeStubInterface) (string, error) {
 
-// 	var userId string
+	var userId string
 
-// 	creatorBytes, err := stub.GetCreator()
-// 	if err != nil {
-// 		return userId, err
-// 	}
+	creatorBytes, err := stub.GetCreator()
+	if err != nil {
+		return userId, err
+	}
 
-// 	creatorString := fmt.Sprintf("%s", creatorBytes)
-// 	index := strings.Index(creatorString, "-----BEGIN CERTIFICATE-----")
-// 	certificate := creatorString[index:]
-// 	block, _ := pem.Decode([]byte(certificate))
+	creatorString := fmt.Sprintf("%s", creatorBytes)
+	index := strings.Index(creatorString, "-----BEGIN CERTIFICATE-----")
+	certificate := creatorString[index:]
+	block, _ := pem.Decode([]byte(certificate))
 
-// 	cert, err := x509.ParseCertificate(block.Bytes)
-// 	if err != nil {
-// 		return userId, err
-// 	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return userId, err
+	}
 
-// 	userId = cert.Subject.CommonName
-// 	logger.Infof("---- Current User ID: %v ", userId)
-// 	return userId, err
-// }
+	userId = cert.Subject.CommonName
+	fmt.Println("---- Current User ID: %v ", userId)
+	return userId, err
+}
 
-// func getFoundations(stub shim.ChaincodeStubInterface) (map[string]Foundation, error) {
+func getFoundations(stub shim.ChaincodeStubInterface) (map[string]Foundation, error) {
 
-// 	logger.Info("------ getFoundations called")
-// 	mapBytes, err := stub.GetState(foundationsKey)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	fmt.Println("------ getFoundations called")
+	mapBytes, err := stub.GetState(foundationsKey)
+	if err != nil {
+		return nil, err
+	}
 
-// 	var mapObject map[string]Foundation
-// 	err = json.Unmarshal(mapBytes, &mapObject)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	logger.Info("received Foundations map %s", mapObject)
-// 	return mapObject, nil
-// }
+	var mapObject map[string]Foundation
+	err = json.Unmarshal(mapBytes, &mapObject)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("received Foundations map %s", mapObject)
+	return mapObject, nil
+}
 
 func saveFoundations(stub shim.ChaincodeStubInterface, mapObject map[string]Foundation) error {
 	fmt.Println("------ saveFoundations called")

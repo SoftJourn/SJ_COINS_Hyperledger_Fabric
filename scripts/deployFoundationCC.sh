@@ -17,55 +17,67 @@ export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/../configurations/peerOrganizations/sj
 export CORE_PEER_MSPCONFIGPATH=${PWD}/../configurations/peerOrganizations/sjfabric.softjourn.if.ua/users/Admin@sjfabric.softjourn.if.ua/msp
 export CORE_PEER_ADDRESS=localhost:7051
 
-# Build chaincode
 echo "[INFO] Build chaincode"
-#pushd ${CHAINCODE_PATH} || exit
-#GO111MODULE=on go mod vendor
-#popd || exit
+pushd ${CHAINCODE_PATH} || exit
+GO111MODULE=on go mod vendor
+popd || exit
 
-# Remove existing chaincode .tar.gz
 echo "[INFO] Remove existing chaincode .tar.gz"
-#rm -rf ${CHAINCODE_NAME}.tar.gz
+rm -rf ${CHAINCODE_NAME}.tar.gz
 
-# Package chaincode
 echo "[INFO] Package chaincode"
-#../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/${CHAINCODE_PATH} --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
+../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/${CHAINCODE_PATH} --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
 
-# Install chaincode
 echo "[INFO] Install chaincode"
-#../bin/peer lifecycle chaincode install ${CHAINCODE_NAME}.tar.gz -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA}
+../bin/peer lifecycle chaincode install ${CHAINCODE_NAME}.tar.gz -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA}
 
-#sleep 10
-
-# 2.
-# Query chaincode
 echo "[INFO] Query chaincode"
-#../bin/peer lifecycle chaincode queryinstalled >&log.txt
+getPackageId() {
+  echo $(../bin/peer lifecycle chaincode queryinstalled | sed -n "/${CHAINCODE_NAME}_${CHAINCODE_VERSION}/{s/^Package ID: //; s/, Label:.*$//; p;}")
+}
 
-#PACKAGE_ID=$(sed -n "/${CHAINCODE_NAME}_${CHAINCODE_VERSION}/{s/^Package ID: //; s/, Label:.*$//; p;}" log.txt)
-#rm -rf log.txt
+PACKAGE_ID=$(getPackageId)
 
-# Approve for org
+while [ "$PACKAGE_ID" == "" ]
+do
+  echo "[INFO] Still querying..."
+  PACKAGE_ID=$(getPackageId)
+  sleep 1
+done
+
 echo "[INFO] Approve for org"
-#../bin/peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --version ${CHAINCODE_VERSION} --init-required --package-id ${PACKAGE_ID} --sequence ${SEQUENCE}
+../bin/peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --version ${CHAINCODE_VERSION} --init-required --package-id ${PACKAGE_ID} --sequence ${SEQUENCE}
 
-#sleep 10
-
-# 3.
-# Check commit readiness
 echo "[INFO] Check commit readiness"
-#../bin/peer lifecycle chaincode checkcommitreadiness --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --version ${CHAINCODE_VERSION} --sequence ${SEQUENCE} --output json --init-required
+checkReadiness() {
+  echo $(echo $(../bin/peer lifecycle chaincode checkcommitreadiness --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --version ${CHAINCODE_VERSION} --sequence ${SEQUENCE} --output json --init-required) | sed 's/ //g')
+}
 
-# Commit chaincode
+RESPONSE=$(checkReadiness)
+NEEDLE="{\"approvals\":{\"${CORE_PEER_LOCALMSPID}\":true}}"
+while [ "$RESPONSE" != "$NEEDLE" ]
+do
+  RESPONSE=$(checkReadiness)
+  echo "[INFO] Still checking..."
+  sleep 1
+done
+
 echo "[INFO] Commit chaincode"
-#../bin/peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --version ${CHAINCODE_VERSION} --sequence ${SEQUENCE} --init-required --peerAddresses localhost:7051 --tlsRootCertFiles ${PEER_TLS}
+../bin/peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --version ${CHAINCODE_VERSION} --sequence ${SEQUENCE} --init-required --peerAddresses localhost:7051 --tlsRootCertFiles ${PEER_TLS}
 
-#sleep 10
-
-# 4.
-# Query committed state
 echo "[INFO] Query committed state"
-#../bin/peer lifecycle chaincode querycommitted --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME}
+getCommitted() {
+  echo $(../bin/peer lifecycle chaincode querycommitted --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME})
+}
+
+NEEDLE="Committed chaincode definition for chaincode '${CHAINCODE_NAME}' on channel '${CHANNEL_NAME}': Version: ${CHAINCODE_VERSION}, Sequence: ${SEQUENCE}, Endorsement Plugin: escc, Validation Plugin: vscc, Approvals: [${CORE_PEER_LOCALMSPID}: true]"
+RESPONSE=$(getCommitted)
+while [ "$RESPONSE" != "$NEEDLE" ]
+do
+  RESPONSE=$(getCommitted)
+  echo "[INFO] Still querying..."
+  sleep 1
+done
 
 # Invoke init method
 echo "[INFO] Invoke init method"
