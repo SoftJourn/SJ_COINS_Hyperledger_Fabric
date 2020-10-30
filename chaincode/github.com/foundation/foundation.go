@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/hyperledger/fabric/common/util"
 )
 
 type FoundationChain struct {
@@ -91,35 +92,6 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 
 	return nil
 }
-
-// func (t *FoundationChain) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-
-// 	function, args := stub.GetFunctionAndParameters()
-// 	fmt.Println(">>> invoke is running " + function)
-
-// 	if function == "createFoundation" {
-// 		return t.createFoundation(stub, args)
-// 	} else if function == "receiveApproval" {
-// 		// TODO: What it should do?
-// 		return t.receiveApproval(stub, args)
-// 	} else if function == "donate" {
-// 		return t.donate(stub, args)
-// 	} else if function == "close" {
-// 		return t.closeFoundation(stub, args)
-// 	} else if function == "withdraw" {
-// 		return t.withdraw(stub, args)
-// 	} else if function == "getFoundations" {
-// 		return t.getFoundations(stub, args)
-// 	} else if function == "getFoundationByName" {
-// 		return t.getFoundationByName(stub, args)
-// 	} else if function == "setAllowance" {
-// 		return t.setAllowance(stub, args)
-// 		//} else if function == "testChaincodeInvoke" {
-// 		//	return t.testChaincodeInvoke(stub, args)
-// 	}
-
-// 	return shim.Error("Invalid invoke function name.")
-// }
 
 func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInterface, args []string) error {
 
@@ -398,187 +370,191 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 		return nil, errors.New(err.Error())
 	}
 
-	return shim.Success([]byte(strconv.FormatUint(uint64(foundation.ContractRemains), 10)))
+	return []byte(strconv.FormatUint(uint64(foundation.ContractRemains), 10)), nil
 }
 
-// func (t *FoundationChain) withdraw(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, args []string) error {
 
-// 	/* args
-// 	0 - foundation name
-// 	1 - receiverId (user_ type)
-// 	2 - amount
-// 	3 - note
-// 	*/
+	/* args
+	0 - foundation name
+	1 - receiverId (user_ type)
+	2 - amount
+	3 - note
+	*/
 
-// 	if len(args) != 4 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 4")
-// 	}
+	stub := ctx.GetStub()
 
-// 	foundationName := args[0]
-// 	receiverId := args[1]
-// 	amountString := args[2]
-// 	note := args[3]
+	if len(args) != 4 {
+		return errors.New("Incorrect number of arguments. Expecting 4")
+	}
 
-// 	foundations, err := getFoundations(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	foundationName := args[0]
+	receiverId := args[1]
+	amountString := args[2]
+	note := args[3]
 
-// 	foundation, ok := foundations[foundationName]
-// 	if !ok {
-// 		return shim.Error("Foundation does not exist.")
-// 	}
+	foundations, err := getFoundations(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// 	amount := t.parseAmountUint(amountString)
-// 	logger.Info("amount: ", amount)
-// 	logger.Info("note: ", note)
-// 	logger.Info("contractRemains: ", foundation.ContractRemains)
+	foundation, ok := foundations[foundationName]
+	if !ok {
+		return errors.New("Foundation does not exist.")
+	}
 
-// 	currentUserId, err := getCurrentUserId(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	amount := t.parseAmountUint(amountString)
+	fmt.Println("amount: ", amount)
+	fmt.Println("note: ", note)
+	fmt.Println("contractRemains: ", foundation.ContractRemains)
 
-// 	if !foundation.WithdrawalAllowed || foundation.AllowanceMap[currentUserId] < amount {
-// 		return shim.Error("withdrawal not allowed")
-// 	}
+	currentUserId, err := getCurrentUserId(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// 	if !foundation.IsContractClosed {
-// 		return shim.Error("contract is not closed")
-// 	}
+	if !foundation.WithdrawalAllowed || foundation.AllowanceMap[currentUserId] < amount {
+		return errors.New("withdrawal not allowed")
+	}
 
-// 	if amount > foundation.ContractRemains {
-// 		return shim.Error("not enough funds")
-// 	}
+	if !foundation.IsContractClosed {
+		return errors.New("contract is not closed")
+	}
 
-// 	/* transferFrom args
-// 	0 - sender account type (user_ , foundation_)
-// 	1 - sender ID
-// 	2 - receiver account type (user_ , foundation_)
-// 	3 - receiver ID
-// 	4 - amount
-// 	*/
+	if amount > foundation.ContractRemains {
+		return errors.New("not enough funds")
+	}
 
-// 	logger.Info("Invoke transferFrom method on: ", foundation.MainCurrency)
-// 	queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Name, userAccountType, receiverId, strconv.FormatUint(uint64(amount), 10))
-// 	response := stub.InvokeChaincode(foundation.MainCurrency, queryArgs, channelName)
-// 	logger.Info("Response status: ", response.Status)
+	/* transferFrom args
+	0 - sender account type (user_ , foundation_)
+	1 - sender ID
+	2 - receiver account type (user_ , foundation_)
+	3 - receiver ID
+	4 - amount
+	*/
 
-// 	if response.Status != shim.OK {
-// 		return shim.Error(response.Message)
-// 	}
+	fmt.Println("Invoke transferFrom method on: ", foundation.MainCurrency)
+	queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Name, userAccountType, receiverId, strconv.FormatUint(uint64(amount), 10))
+	response := stub.InvokeChaincode(foundation.MainCurrency, queryArgs, channelName)
+	fmt.Println("Response status: ", response.Status)
 
-// 	foundation.ContractRemains -= amount
+	if response.Status != shim.OK {
+		return errors.New(response.Message)
+	}
 
-// 	newDetail := WithdrawDetails{Time: time.Now(), Amount: amount, Note: note, Id: uint(len(foundation.WithdrawDetailsMap) + 1)}
-// 	foundation.WithdrawDetailsMap[len(foundation.WithdrawDetailsMap)+1] = newDetail
-// 	logger.Info("detailsMap: ", foundation.WithdrawDetailsMap)
+	foundation.ContractRemains -= amount
 
-// 	foundations[foundation.Name] = foundation
-// 	err = saveFoundations(stub, foundations)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	newDetail := WithdrawDetails{Time: time.Now(), Amount: amount, Note: note, Id: uint(len(foundation.WithdrawDetailsMap) + 1)}
+	foundation.WithdrawDetailsMap[len(foundation.WithdrawDetailsMap)+1] = newDetail
+	fmt.Println("detailsMap: ", foundation.WithdrawDetailsMap)
 
-// 	logger.Info("---- withdraw successful")
-// 	return shim.Success(nil)
-// }
+	foundations[foundation.Name] = foundation
+	err = saveFoundations(stub, foundations)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// // Get foundations call handler. Just get a list of foundations' names.
-// func (t *FoundationChain) getFoundations(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-// 	foundations, err := getFoundations(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	fmt.Println("---- withdraw successful")
+	return nil
+}
 
-// 	keys := make([]string, 0, len(foundations))
-// 	for k := range foundations {
-// 		keys = append(keys, k)
-// 	}
+// Get foundations call handler. Just get a list of foundations' names.
+func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
 
-// 	bytes, err := json.Marshal(keys)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
-// 	return shim.Success(bytes)
-// }
+	foundations, err := getFoundations(ctx.GetStub())
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
 
-// // Get foundation by name call handler.
-// func (t *FoundationChain) getFoundationByName(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	keys := make([]string, 0, len(foundations))
+	for k := range foundations {
+		keys = append(keys, k)
+	}
 
-// 	/* args
-// 	0 - foundation name
-// 	*/
+	bytes, err := json.Marshal(keys)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
 
-// 	foundations, err := getFoundations(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	return bytes, nil
+}
 
-// 	foundation, exist := foundations[args[0]]
-// 	if !exist {
-// 		return shim.Error("Foundation does not exist.")
-// 	}
+// Get foundation by name call handler.
+func (t *FoundationChain) getFoundationByName(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
 
-// 	bytes, err := json.Marshal(foundation)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	/* args
+	0 - foundation name
+	*/
 
-// 	return shim.Success(bytes)
-// }
+	foundations, err := getFoundations(ctx.GetStub())
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
 
-// // Set amount of allowed withdraw for user.
-// func (t *FoundationChain) setAllowance(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	foundation, exist := foundations[args[0]]
+	if !exist {
+		return nil, errors.New("Foundation does not exist.")
+	}
 
-// 	/* args
-// 	0 - foundation name
-// 	1 - user ID
-// 	2 - amount
-// 	*/
+	bytes, err := json.Marshal(foundation)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
 
-// 	if len(args) != 3 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 3")
-// 	}
+	return bytes, nil
+}
 
-// 	foundationName := args[0]
-// 	userId := args[1]
-// 	amountString := args[2]
-// 	amount := t.parseAmountUint(amountString)
+// Set amount of allowed withdraw for user.
+func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterface, args []string) error {
 
-// 	foundations, err := getFoundations(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	/* args
+	0 - foundation name
+	1 - user ID
+	2 - amount
+	*/
 
-// 	foundation, exist := foundations[foundationName]
-// 	if !exist {
-// 		return shim.Error("Foundation does not exist.")
-// 	}
+	stub := ctx.GetStub()
 
-// 	currentUserId, err := getCurrentUserId(stub)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
+	if len(args) != 3 {
+		return errors.New("Incorrect number of arguments. Expecting 3")
+	}
 
-// 	if currentUserId == foundation.AdminID && foundation.WithdrawalAllowed || currentUserId == foundation.Name {
-// 		//userAccount, err := stub.CreateCompositeKey(userType, []string{userId})
-// 		//if err != nil {
-// 		//	return shim.Error(err.Error())
-// 		//}
+	foundationName := args[0]
+	userId := args[1]
+	amountString := args[2]
+	amount := t.parseAmountUint(amountString)
 
-// 		//foundation.AllowanceMap[userAccount] = amount
+	foundations, err := getFoundations(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// 		foundation.AllowanceMap[userId] = amount
-// 		foundations[foundation.Name] = foundation
-// 		saveFoundations(stub, foundations)
-// 		return shim.Success(nil)
+	foundation, exist := foundations[foundationName]
+	if !exist {
+		return errors.New("Foundation does not exist.")
+	}
 
-// 	} else {
-// 		return shim.Error("Failed to set allowance")
-// 	}
+	currentUserId, err := getCurrentUserId(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
-// }
+	if currentUserId == foundation.AdminID && foundation.WithdrawalAllowed || currentUserId == foundation.Name {
+		//userAccount, err := stub.CreateCompositeKey(userType, []string{userId})
+		//if err != nil {
+		//	return shim.Error(err.Error())
+		//}
+
+		//foundation.AllowanceMap[userAccount] = amount
+
+		foundation.AllowanceMap[userId] = amount
+		foundations[foundation.Name] = foundation
+		saveFoundations(stub, foundations)
+		return nil
+	}
+
+	return errors.New("Failed to set allowance")
+}
 
 func (t *FoundationChain) parseAmountUint(amount string) uint {
 	amount32, err := strconv.ParseUint(amount, 10, 32)
@@ -593,14 +569,14 @@ func (t *FoundationChain) parseAmountUint(amount string) uint {
 // 	return shim.Success(nil)
 // }
 
-// //func (t *FoundationChain) testChaincodeInvoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-// //
-// //	queryArgs := util.ToChaincodeArgs("balanceOf", "Jim")
-// //	response := stub.InvokeChaincode("coin", queryArgs, channelName)
-// //	logger.Info("Transfer Response status: ", response.Status)
-// //
-// //	return shim.Success(nil)
-// //}
+func (t *FoundationChain) TestChaincodeInvoke(ctx contractapi.TransactionContextInterface) error {
+
+	queryArgs := util.ToChaincodeArgs("balanceOf", "Jim")
+	response := ctx.GetStub().InvokeChaincode("coin", queryArgs, channelName)
+	fmt.Println("Transfer Response status: ", response.Status)
+
+	return nil
+}
 
 // Check goal is reached.
 func checkGoalReached(foundation *Foundation) bool {

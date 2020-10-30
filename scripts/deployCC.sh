@@ -16,7 +16,7 @@ export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/../configurations/peerOrganizations/sj
 export CORE_PEER_MSPCONFIGPATH=${PWD}/../configurations/peerOrganizations/sjfabric.softjourn.if.ua/users/Admin@sjfabric.softjourn.if.ua/msp
 export CORE_PEER_ADDRESS=localhost:7051
 
-echo "[INFO] Build chaincode"
+echo "[INFO] Build chaincode: ${CHAINCODE_NAME}"
 pushd ../chaincode/github.com/coins || exit
 GO111MODULE=on go mod vendor
 popd || exit
