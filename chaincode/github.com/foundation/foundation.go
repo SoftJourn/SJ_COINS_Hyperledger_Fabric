@@ -54,6 +54,11 @@ type Foundation struct {
 	AllowanceMap       map[string]uint         `json:"allowanceMap"` //Map with allowance info
 }
 
+type UserBalance struct {
+	UserId  string `json:"userId"`
+	Balance int    `json:"balance"`
+}
+
 var channelName string = "mychannel"
 var foundationAccountType string = "foundation_"
 var userAccountType string = "user_"
@@ -571,9 +576,14 @@ func (t *FoundationChain) parseAmountUint(amount string) uint {
 
 func (t *FoundationChain) TestChaincodeInvoke(ctx contractapi.TransactionContextInterface) error {
 
-	queryArgs := util.ToChaincodeArgs("balanceOf", "Jim")
-	response := ctx.GetStub().InvokeChaincode("coin", queryArgs, channelName)
-	fmt.Println("Transfer Response status: ", response.Status)
+  fmt.Println("Start invoke coin chaincode")
+  queryArgs := util.ToChaincodeArgs("balanceOf", "user_", "0xfade")
+  response := ctx.GetStub().InvokeChaincode("coins", queryArgs, channelName)
+  fmt.Println("Response status: ", response.Status)
+
+  if response.Status != shim.OK {
+     return errors.New(response.Message)
+  }
 
 	return nil
 }
