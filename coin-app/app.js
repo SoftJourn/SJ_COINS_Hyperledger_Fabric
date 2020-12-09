@@ -105,7 +105,7 @@ app.post('/enroll', async function (req, res) {
     const username = req.body.username;
     const orgName = req.body.orgName;
 
-    logger.debug(`Endpoint : /users, Username: ${username}, OrgName: ${orgName}`);
+    logger.debug(`Endpoint : /enroll, Username: ${username}, OrgName: ${orgName}`);
 
     if (!username) {
         res.statusCode = 400;

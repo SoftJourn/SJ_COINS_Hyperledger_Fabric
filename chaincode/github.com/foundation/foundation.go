@@ -54,6 +54,18 @@ type Foundation struct {
 	AllowanceMap       map[string]uint         `json:"allowanceMap"` //Map with allowance info
 }
 
+type FoundationProject struct {
+  Name               string          `json:"name"`
+  CreatorId          string          `json:"creatorId"`
+  AdminID            string          `json:"adminId"`
+  FundingGoal        uint            `json:"fundingGoal"`
+  MainCurrency       string          `json:"mainCurrency"`
+  Deadline           uint            `json:"deadline"`
+  CloseOnGoalReached bool            `json:"closeOnGoalReached"`
+  AcceptCurrencies   map[string]bool `json:"acceptCurrencies"`
+  WithdrawalAllowed  bool            `json:"withdrawAllowed"`
+}
+
 type UserBalance struct {
 	UserId  string `json:"userId"`
 	Balance int    `json:"balance"`
@@ -98,7 +110,7 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 	return nil
 }
 
-func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInterface, foundationJson string) error {
 
 	/* args
 	0 - foundation Name
@@ -111,76 +123,36 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	7 - Currency
 	... n - accept currencies
 	*/
+	project := new(FoundationProject)
+	err := json.Unmarshal([]byte(foundationJson), &project)
+
+  if err != nil {
+    return err
+  }
 
 	stub := ctx.GetStub()
-
-	if len(args) < 9 {
-		return errors.New("Incorrect number of arguments. Expecting at least 9")
-	}
 
 	foundations, err := getFoundations(stub)
 	if err != nil {
 		return errors.New(err.Error())
 	}
 
-	_, exist := foundations[args[0]]
+	_, exist := foundations[project.Name]
 	if exist {
 		return errors.New("Foundation already exists")
 	}
 
-	foundation := Foundation{}
-	foundation.Name = args[0]
-	fmt.Println("foundationName: ", foundation.Name)
-
-	foundation.AdminID = args[1]
-	fmt.Println("admin ID: ", foundation.AdminID)
-
-	foundation.CreatorId = args[2]
-	fmt.Println("creator ID: ", foundation.CreatorId)
-
-	fundingGoalArg, err := strconv.ParseUint(args[3], 10, 32)
-	if err != nil {
-		return errors.New(err.Error())
-	}
-	foundation.FundingGoal = uint(fundingGoalArg)
-	fmt.Println("funding Goal: ", foundation.FundingGoal)
-
-	minutesInt, err := strconv.ParseInt(args[4], 10, 32)
-	if err != nil {
-		return errors.New(err.Error())
-	}
-	duration := time.Minute * time.Duration(minutesInt)
-	currentTime := time.Now()
-	foundation.Deadline = currentTime.Add(duration)
-	fmt.Println("deadline: ", foundation.Deadline.Format(time.RFC3339))
-
-	closeOnGoal, err := strconv.ParseBool(args[5])
-	if err != nil {
-		return errors.New(err.Error())
-	}
-
-	foundation.CloseOnGoalReached = closeOnGoal
-	fmt.Println("closeOnGoalReached: ", foundation.CloseOnGoalReached)
-
-	withdrawalAllowed, err := strconv.ParseBool(args[6])
-	if err != nil {
-		return errors.New(err.Error())
-	}
-
-	foundation.WithdrawalAllowed = withdrawalAllowed
-
-	foundation.MainCurrency = args[7]
-	fmt.Println("Main currency: ", foundation.MainCurrency)
-
-	currencies := args[8:]
-	fmt.Println("currencies: ", currencies)
-
-	foundation.AcceptCurrencies = make(map[string]bool)
-	for _, v := range currencies {
-		foundation.AcceptCurrencies[v] = true
-	}
-	fmt.Println("Accept Currencies: ", foundation.AcceptCurrencies)
-
+  foundation := Foundation{}
+  foundation.Name = project.Name
+  foundation.AdminID = project.AdminID
+  foundation.CreatorId = project.CreatorId
+  foundation.FundingGoal = project.FundingGoal
+  duration := time.Minute * time.Duration(project.Deadline)
+  currentTime := time.Now()
+  foundation.Deadline = currentTime.Add(duration)
+  foundation.CloseOnGoalReached = project.CloseOnGoalReached
+  foundation.MainCurrency = project.MainCurrency
+  foundation.AcceptCurrencies = project.AcceptCurrencies
 	foundation.DonationsMapOld = make(map[string]uint)
 	foundation.DonationsMap = make(map[int]Donation)
 	foundation.WithdrawDetailsMap = make(map[int]WithdrawDetails)
@@ -464,7 +436,7 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 }
 
 // Get foundations call handler. Just get a list of foundations' names.
-func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
+func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface) ([]string, error) {
 
 	foundations, err := getFoundations(ctx.GetStub())
 	if err != nil {
@@ -476,12 +448,12 @@ func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInter
 		keys = append(keys, k)
 	}
 
-	bytes, err := json.Marshal(keys)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
+// 	bytes, err := json.Marshal(keys)
+// 	if err != nil {
+// 		return nil, errors.New(err.Error())
+// 	}
 
-	return bytes, nil
+	return keys, nil
 }
 
 // Get foundation by name call handler.
