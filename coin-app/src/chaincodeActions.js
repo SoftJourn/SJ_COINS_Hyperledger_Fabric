@@ -119,4 +119,6 @@ async function loadGateway(user) {
 }
 
 exports.invoke = invoke;
+exports.invokeCode = invokeCode;
 exports.query = query;
+exports.queryCode = queryCode;

@@ -135,6 +135,36 @@ app.post('/enroll', async function (req, res) {
     }
 });
 
+// Invoke transaction on custom chaincode.
+app.post('/invoke/:chaincode', async function (req, res) {
+    const isObject = req.body.isObject || false;
+    const chaincode = req.params.chaincode;
+    const fcn = req.body.fcn;
+    const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
+
+    logger.debug(`Invoke function: ${fcn} with arguments: ${args}`);
+
+    if (!chaincode) {
+      res.statusCode = 400;
+      res.json(getErrorMessage('\'chaincode\''));
+      return;
+    }
+
+    if (!fcn) {
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'fcn\''));
+        return;
+    }
+
+    if (!args) {
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'args\''));
+        return;
+    }
+
+    res.send(await chaincodeActions.invokeCode(req.username, chaincode, fcn, args, isObject));
+});
+
 // Invoke transaction on chaincode
 app.post('/invoke', async function (req, res) {
     const isObject = req.body.isObject || false;
@@ -157,6 +187,36 @@ app.post('/invoke', async function (req, res) {
 
     let message = await chaincodeActions.invoke(req.username, fcn, args, isObject);
     res.send(message);
+});
+
+// Query transaction on custom chaincode.
+app.post('/query/:chaincode', async function (req, res) {
+    const isObject = req.body.isObject || false;
+    const chaincode = req.params.chaincode;
+    const fcn = req.body.fcn;
+    const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
+
+    logger.debug(`Query function: ${fcn} with arguments: ${args}`);
+
+    if (!chaincode) {
+      res.statusCode = 400;
+      res.json(getErrorMessage('\'chaincode\''));
+      return;
+    }
+
+    if (!fcn) {
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'fcn\''));
+        return;
+    }
+
+    if (!args) {
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'args\''));
+        return;
+    }
+
+    res.send(await chaincodeActions.queryCode(req.username, chaincode, fcn, args, isObject));
 });
 
 // Query transaction on chaincode

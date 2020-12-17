@@ -156,6 +156,7 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	foundation.DonationsMapOld = make(map[string]uint)
 	foundation.DonationsMap = make(map[int]Donation)
 	foundation.WithdrawDetailsMap = make(map[int]WithdrawDetails)
+	foundation.WithdrawalAllowed = project.WithdrawalAllowed
 	foundation.AllowanceMap = make(map[string]uint)
 	foundations[foundation.Name] = foundation
 	err = saveFoundations(stub, foundations)
@@ -164,6 +165,48 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	}
 
 	return nil
+}
+
+// Get foundations call handler. Just get a list of foundations' names.
+func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface) ([]string, error) {
+
+	foundations, err := getFoundations(ctx.GetStub())
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+
+	keys := make([]string, 0, len(foundations))
+	for k := range foundations {
+		keys = append(keys, k)
+	}
+
+	return keys, nil
+}
+
+// Get foundation by name call handler.
+func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContextInterface, name string) (*FoundationProject, error) {
+
+	foundations, err := getFoundations(ctx.GetStub())
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+
+	foundation, exist := foundations[name]
+	if !exist {
+		return nil, errors.New("Foundation does not exist.")
+	}
+
+	project := new(FoundationProject)
+  project.Name = foundation.Name
+  project.AdminID = foundation.AdminID
+  project.CreatorId = foundation.CreatorId
+  project.FundingGoal = foundation.FundingGoal
+  project.CloseOnGoalReached = foundation.CloseOnGoalReached
+  project.MainCurrency = foundation.MainCurrency
+  project.AcceptCurrencies = foundation.AcceptCurrencies
+  project.WithdrawalAllowed = foundation.WithdrawalAllowed
+
+	return project, nil
 }
 
 func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
@@ -253,43 +296,35 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, ar
 	return nil, errors.New(response.Message)
 }
 
-func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
-
-	/* args
-	0 - foundation name
-	*/
+func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInterface, name string) (uint, error) {
 
 	stub := ctx.GetStub()
 
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 1")
-	}
-
-	fmt.Println("Foundation name: ", args[0])
+	fmt.Println("Foundation name: ", name)
 
 	foundations, err := getFoundations(stub)
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
 
-	foundation, ok := foundations[args[0]]
+	foundation, ok := foundations[name]
 	if !ok {
 		return nil, errors.New("Foundation does not exist.")
 	}
+
+	currentUserId, err := getCurrentUserId(stub)
+  if err != nil {
+    return nil, errors.New(err.Error())
+  }
+
+  if currentUserId != foundation.AdminID {
+    return nil, errors.New("Failed. Only admin can close foundation.")
+  }
 
 	checkGoalReached(&foundation)
 
 	if foundation.IsContractClosed {
 		return nil, errors.New("Failed. Foundation is already closed.")
-	}
-
-	currentUserId, err := getCurrentUserId(stub)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
-
-	if currentUserId != foundation.AdminID {
-		return nil, errors.New("Failed. Only admin can close foundation.")
 	}
 
 	// TODO Define Return donations flow
@@ -347,7 +382,7 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 		return nil, errors.New(err.Error())
 	}
 
-	return []byte(strconv.FormatUint(uint64(foundation.ContractRemains), 10)), nil
+	return strconv.FormatUint(uint64(foundation.ContractRemains), 10), nil
 }
 
 func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, args []string) error {
@@ -433,52 +468,6 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 
 	fmt.Println("---- withdraw successful")
 	return nil
-}
-
-// Get foundations call handler. Just get a list of foundations' names.
-func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface) ([]string, error) {
-
-	foundations, err := getFoundations(ctx.GetStub())
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
-
-	keys := make([]string, 0, len(foundations))
-	for k := range foundations {
-		keys = append(keys, k)
-	}
-
-// 	bytes, err := json.Marshal(keys)
-// 	if err != nil {
-// 		return nil, errors.New(err.Error())
-// 	}
-
-	return keys, nil
-}
-
-// Get foundation by name call handler.
-func (t *FoundationChain) getFoundationByName(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
-
-	/* args
-	0 - foundation name
-	*/
-
-	foundations, err := getFoundations(ctx.GetStub())
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
-
-	foundation, exist := foundations[args[0]]
-	if !exist {
-		return nil, errors.New("Foundation does not exist.")
-	}
-
-	bytes, err := json.Marshal(foundation)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
-
-	return bytes, nil
 }
 
 // Set amount of allowed withdraw for user.
