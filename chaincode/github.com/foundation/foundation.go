@@ -168,19 +168,30 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 }
 
 // Get foundations call handler. Just get a list of foundations' names.
-func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface) ([]string, error) {
+func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface) ([]*FoundationProject, error) {
 
 	foundations, err := getFoundations(ctx.GetStub())
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
 
-	keys := make([]string, 0, len(foundations))
-	for k := range foundations {
-		keys = append(keys, k)
+	foundationProjects := []*FoundationProject{}
+
+	for _, foundationProject := range foundations {
+		project := new(FoundationProject)
+    project.Name = foundationProject.Name
+    project.AdminID = foundationProject.AdminID
+    project.CreatorId = foundationProject.CreatorId
+    project.FundingGoal = foundationProject.FundingGoal
+    project.CloseOnGoalReached = foundationProject.CloseOnGoalReached
+    project.MainCurrency = foundationProject.MainCurrency
+    project.AcceptCurrencies = foundationProject.AcceptCurrencies
+    project.WithdrawalAllowed = foundationProject.WithdrawalAllowed
+
+    foundationProjects = append(foundationProjects, project)
 	}
 
-	return keys, nil
+	return foundationProjects, nil
 }
 
 // Get foundation by name call handler.
@@ -296,7 +307,7 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, ar
 	return nil, errors.New(response.Message)
 }
 
-func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInterface, name string) (uint, error) {
+func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInterface, name string) (uint64, error) {
 
 	stub := ctx.GetStub()
 
@@ -304,27 +315,27 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 
 	foundations, err := getFoundations(stub)
 	if err != nil {
-		return nil, errors.New(err.Error())
+		return 0, errors.New(err.Error())
 	}
 
 	foundation, ok := foundations[name]
 	if !ok {
-		return nil, errors.New("Foundation does not exist.")
+		return 0, errors.New("Foundation does not exist.")
 	}
 
 	currentUserId, err := getCurrentUserId(stub)
   if err != nil {
-    return nil, errors.New(err.Error())
+    return 0, errors.New(err.Error())
   }
 
   if currentUserId != foundation.AdminID {
-    return nil, errors.New("Failed. Only admin can close foundation.")
+    return 0, errors.New("Failed. Only admin can close foundation.")
   }
 
 	checkGoalReached(&foundation)
 
 	if foundation.IsContractClosed {
-		return nil, errors.New("Failed. Foundation is already closed.")
+		return 0, errors.New("Failed. Foundation is already closed.")
 	}
 
 	// TODO Define Return donations flow
@@ -346,7 +357,7 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 					fmt.Println("amount value v: ", v)
 
 					if err != nil {
-						return nil, errors.New(err.Error())
+						return 0, errors.New(err.Error())
 					}
 
 					/* transferFrom args
@@ -363,7 +374,7 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 					fmt.Println("Response status: ", response.Status)
 
 					if response.Status != shim.OK {
-						return nil, errors.New(response.Message)
+						return 0, errors.New(response.Message)
 					}
 					//foundation.DonationsMapOld[k] = 0;
 				}
@@ -379,10 +390,10 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 	foundations[foundation.Name] = foundation
 	err = saveFoundations(stub, foundations)
 	if err != nil {
-		return nil, errors.New(err.Error())
+		return 0, errors.New(err.Error())
 	}
 
-	return strconv.FormatUint(uint64(foundation.ContractRemains), 10), nil
+	return uint64(foundation.ContractRemains), nil
 }
 
 func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, args []string) error {
@@ -528,25 +539,6 @@ func (t *FoundationChain) parseAmountUint(amount string) uint {
 		return 0
 	}
 	return uint(amount32)
-}
-
-// // TODO: What it should do?
-// func (t *FoundationChain) receiveApproval(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-// 	return shim.Success(nil)
-// }
-
-func (t *FoundationChain) TestChaincodeInvoke(ctx contractapi.TransactionContextInterface) error {
-
-  fmt.Println("Start invoke coin chaincode")
-  queryArgs := util.ToChaincodeArgs("balanceOf", "user_", "0xfade")
-  response := ctx.GetStub().InvokeChaincode("coins", queryArgs, channelName)
-  fmt.Println("Response status: ", response.Status)
-
-  if response.Status != shim.OK {
-     return errors.New(response.Message)
-  }
-
-	return nil
 }
 
 // Check goal is reached.
