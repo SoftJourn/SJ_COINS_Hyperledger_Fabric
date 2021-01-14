@@ -90,3 +90,6 @@ echo "[${CHAINCODE_NAME}] Mint 10_000_000 SJCoins"
 curl -d '{"fcn":"mint","args":[10000000]}' -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -X POST "http://localhost:4000/invoke"
 
 # TODO Handle error -> orderer.sjfabric.softjourn.if.ua     | 2020-06-19 14:45:45.878 UTC [orderer.common.broadcast] Handle -> WARN 053 Error reading from 192.168.160.1:60162: rpc error: code = Canceled desc = context canceled
+
+echo "[${CHAINCODE_NAME}] Remove existing chaincode .tar.gz"
+rm -rf ${CHAINCODE_NAME}.tar.gz

@@ -82,3 +82,6 @@ done
 # Invoke init method
 echo "[${CHAINCODE_NAME}] Invoke init method"
 ../bin/peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --isInit -c '{"function":"initLedger","Args":[]}' --peerAddresses localhost:7051 --tlsRootCertFiles ${PEER_TLS}
+
+echo "[${CHAINCODE_NAME}] Remove existing chaincode .tar.gz"
+rm -rf ${CHAINCODE_NAME}.tar.gz
