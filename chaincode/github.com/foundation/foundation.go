@@ -33,6 +33,12 @@ type Donation struct {
 	Amount          uint   `json:"amount"`
 }
 
+type DonationRequest struct {
+	ProjectId	string `json:"projectId"`
+	Amount  	uint 	 `json:"amount"`
+	Currency  string `json:"currency"`
+}
+
 type Foundation struct {
 	Name               string                  `json:"name"`               //Foundation name
 	CreatorId          string                  `json:"creatorId"`          //Foundation founder ID
@@ -194,23 +200,7 @@ func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInter
 
 	views := []*FoundationView{}
 	for _, foundation := range(foundations) {
-		view := new(FoundationView)
-		view.Name = foundation.Name
-		view.CreatorId = foundation.CreatorId
-		view.AdminID = foundation.AdminID
-		view.FundingGoal = foundation.FundingGoal
-		view.CollectedAmount = foundation.CollectedAmount
-		view.RemainsAmount = foundation.ContractRemains
-		view.MainCurrency = foundation.MainCurrency
-		view.Deadline = foundation.Deadline
-		view.CloseOnGoalReached = foundation.CloseOnGoalReached
-		view.AcceptCurrencies = foundation.AcceptCurrencies
-		view.WithdrawalAllowed = foundation.WithdrawalAllowed
-		view.FundingGoalReached = foundation.FundingGoalReached
-		view.IsContractClosed = foundation.IsContractClosed
-		view.IsDonationReturned = foundation.IsDonationReturned
-
-		views = append(views, view)
+		views = append(views, getViewFromFoundation(&foundation))
 	}
 
 	return views, nil
@@ -229,45 +219,27 @@ func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContext
 		return nil, errors.New("Foundation does not exist.")
 	}
 
-	view := new(FoundationView)
-  view.Name = foundation.Name
-  view.CreatorId = foundation.CreatorId
-  view.AdminID = foundation.AdminID
-  view.FundingGoal = foundation.FundingGoal
-  view.CollectedAmount = foundation.CollectedAmount
-  view.RemainsAmount = foundation.ContractRemains
-  view.MainCurrency = foundation.MainCurrency
-  view.Deadline = foundation.Deadline
-  view.CloseOnGoalReached = foundation.CloseOnGoalReached
-  view.AcceptCurrencies = foundation.AcceptCurrencies
-  view.WithdrawalAllowed = foundation.WithdrawalAllowed
-  view.FundingGoalReached = foundation.FundingGoalReached
-  view.IsContractClosed = foundation.IsContractClosed
-  view.IsDonationReturned = foundation.IsDonationReturned
-
-	return view, nil
+	return getViewFromFoundation(&foundation), nil
 }
 
-func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
+func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, donationRequestJson string) (*FoundationView, error) {
 
 	/* args
 	0 - currency name (docker container name - coin)
 	1 - amount
 	2 - foundation name
 	*/
-
 	stub := ctx.GetStub()
 
-	if len(args) != 3 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 3")
-	}
+	request := new(DonationRequest)
+	err := json.Unmarshal([]byte(donationRequestJson), &request)
 
 	foundations, err := getFoundationsMap(stub)
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
 
-	foundation, exist := foundations[args[2]]
+	foundation, exist := foundations[request.ProjectId]
 	if !exist {
 		return nil, errors.New("Foundation does not exist")
 	}
@@ -276,24 +248,22 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, ar
 		return nil, errors.New("Foundation is closed")
 	}
 
-	currency := args[0]
-	fmt.Println("Currency (chaincode) Name: ", currency)
+	fmt.Println("Currency (chaincode) Name: ", request.Currency)
 
 	fmt.Println("acceptCurrencies ", foundation.AcceptCurrencies)
-	if !foundation.AcceptCurrencies[currency] {
-		return nil, errors.New("Can not accept currency " + currency)
+	if !foundation.AcceptCurrencies[request.Currency] {
+		return nil, errors.New("Can not accept currency " + request.Currency)
 	}
 
-	amount := t.parseAmountUint(args[1])
-	fmt.Println("amount: ", amount)
+	fmt.Println("amount: ", request.Amount)
 
-	if amount == 0 {
+	if request.Amount == 0 {
 		return nil, errors.New("Error. Amount must be > 0")
 	}
 
-	fmt.Println("Invoke Transfer method on: ", currency)
-	queryArgs := util.ToChaincodeArgs("transfer", foundationAccountType, foundation.Name, args[1])
-	response := stub.InvokeChaincode(currency, queryArgs, channelName)
+	fmt.Println("Invoke Transfer method on: ", request.Currency)
+	queryArgs := util.ToChaincodeArgs("transfer", foundationAccountType, foundation.Name, fmt.Sprint(request.Amount))
+	response := stub.InvokeChaincode(request.Currency, queryArgs, channelName)
 	fmt.Println("Transfer Response status: ", response.Status)
 
 	if response.Status == shim.OK {
@@ -306,19 +276,19 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, ar
 		donation := Donation{
 			UserId:          currentUserId,
 			UserAccountType: userAccountType,
-			Currency:        currency,
-			Amount:          amount,
+			Currency:        request.Currency,
+			Amount:          request.Amount,
 		}
 
 		foundation.DonationsMap[len(foundation.DonationsMap)+1] = donation
 
-		donationKey, err := stub.CreateCompositeKey(currency, []string{userAccountType, currentUserId})
+		donationKey, err := stub.CreateCompositeKey(request.Currency, []string{userAccountType, currentUserId})
 		if err != nil {
 			return nil, errors.New(err.Error())
 		}
 
-		foundation.DonationsMapOld[donationKey] += amount
-		foundation.CollectedAmount += amount
+		foundation.DonationsMapOld[donationKey] += request.Amount
+		foundation.CollectedAmount += request.Amount
 		fmt.Println(foundation.Name, " - foundation.CollectedAmount ", foundation.CollectedAmount)
 
 		checkGoalReached(&foundation)
@@ -329,7 +299,7 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, ar
 			return nil, errors.New(err.Error())
 		}
 
-		return []byte(strconv.FormatUint(uint64(foundation.CollectedAmount), 10)), nil
+		return getViewFromFoundation(&foundation), nil
 	}
 
 	return nil, errors.New(response.Message)
@@ -561,6 +531,8 @@ func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterfa
 	return errors.New("Failed to set allowance")
 }
 
+////////// Internal use functions ////////////
+
 func (t *FoundationChain) parseAmountUint(amount string) uint {
 	amount32, err := strconv.ParseUint(amount, 10, 32)
 	if err != nil {
@@ -641,4 +613,24 @@ func saveFoundations(stub shim.ChaincodeStubInterface, mapObject map[string]Foun
 	}
 	fmt.Println("saved ", mapObject)
 	return nil
+}
+
+func getViewFromFoundation(foundation *Foundation) *FoundationView {
+	view := new(FoundationView)
+  view.Name = foundation.Name
+  view.CreatorId = foundation.CreatorId
+  view.AdminID = foundation.AdminID
+  view.FundingGoal = foundation.FundingGoal
+  view.CollectedAmount = foundation.CollectedAmount
+  view.RemainsAmount = foundation.ContractRemains
+  view.MainCurrency = foundation.MainCurrency
+  view.Deadline = foundation.Deadline
+  view.CloseOnGoalReached = foundation.CloseOnGoalReached
+  view.AcceptCurrencies = foundation.AcceptCurrencies
+  view.WithdrawalAllowed = foundation.WithdrawalAllowed
+  view.FundingGoalReached = foundation.FundingGoalReached
+  view.IsContractClosed = foundation.IsContractClosed
+  view.IsDonationReturned = foundation.IsDonationReturned
+
+  return view;
 }
