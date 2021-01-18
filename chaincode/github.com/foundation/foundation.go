@@ -217,7 +217,7 @@ func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInter
 }
 
 // Get foundation by name call handler.
-func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContextInterface, name string) (*FoundationProject, error) {
+func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContextInterface, name string) (*FoundationView, error) {
 
 	foundations, err := getFoundationsMap(ctx.GetStub())
 	if err != nil {
@@ -229,17 +229,23 @@ func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContext
 		return nil, errors.New("Foundation does not exist.")
 	}
 
-	project := new(FoundationProject)
-	project.Name = foundation.Name
-	project.AdminID = foundation.AdminID
-	project.CreatorId = foundation.CreatorId
-	project.FundingGoal = foundation.FundingGoal
-	project.CloseOnGoalReached = foundation.CloseOnGoalReached
-	project.MainCurrency = foundation.MainCurrency
-	project.AcceptCurrencies = foundation.AcceptCurrencies
-	project.WithdrawalAllowed = foundation.WithdrawalAllowed
+	view := new(FoundationView)
+  view.Name = foundation.Name
+  view.CreatorId = foundation.CreatorId
+  view.AdminID = foundation.AdminID
+  view.FundingGoal = foundation.FundingGoal
+  view.CollectedAmount = foundation.CollectedAmount
+  view.RemainsAmount = foundation.ContractRemains
+  view.MainCurrency = foundation.MainCurrency
+  view.Deadline = foundation.Deadline
+  view.CloseOnGoalReached = foundation.CloseOnGoalReached
+  view.AcceptCurrencies = foundation.AcceptCurrencies
+  view.WithdrawalAllowed = foundation.WithdrawalAllowed
+  view.FundingGoalReached = foundation.FundingGoalReached
+  view.IsContractClosed = foundation.IsContractClosed
+  view.IsDonationReturned = foundation.IsDonationReturned
 
-	return project, nil
+	return view, nil
 }
 
 func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, args []string) ([]byte, error) {
