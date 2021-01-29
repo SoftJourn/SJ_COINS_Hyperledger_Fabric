@@ -96,6 +96,61 @@ function getErrorMessage(field) {
     };
 }
 
+// WARN: This is quick but not good solution for sequential enroll requests.
+var EnrollmentDecision = {
+    queue: {},
+
+    init: function(id) {
+        if (!this.queue[id]) {
+            this.queue[id] = [];
+        }
+
+        let uuid = this.getUUID();
+        this.queue[id].push({uuid: uuid, time: +new Date()});
+
+        return uuid;
+    },
+
+    acquire: function(id, uuid) {
+        let queue = this.queue[id];
+
+        while (queue.length > 0) {
+            let next = queue[0];
+
+            if (next.uuid != uuid) {
+                if (next.time < ((+new Date()) - 3000)) {
+                    queue.shift();
+                    continue;
+                } else {
+                    return false;
+                }
+            } else {
+                return true;
+            }
+        }
+
+        return true;
+    },
+
+    clear: function(id, uuid) {
+        if (!this.queue[id]) {
+            return;
+        }
+
+        let index = this.queue[id].findIndex(function (e) { return e.uuid == uuid; });
+        if (index > -1) {
+            this.queue[id].splice(index, 1);
+        }
+    },
+
+    getUUID: function() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////// REST ENDPOINTS START HERE ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -107,32 +162,48 @@ app.post('/enroll', async function (req, res) {
 
     logger.debug(`Endpoint : /enroll, Username: ${username}, OrgName: ${orgName}`);
 
-    if (!username) {
-        res.statusCode = 400;
-        res.json(getErrorMessage('\'username\' or \'orgName\''));
-        return;
+    let uuid = EnrollmentDecision.init(username);
+
+    // TODO: Change this implementation of sequential processing to correct one.
+    async function handle(req, res) {
+        if (!EnrollmentDecision.acquire(username, uuid)) {
+            setTimeout(function() { handle(req, res); }, 1000);
+            return;
+        }
+
+        if (!username) {
+            res.statusCode = 400;
+            EnrollmentDecision.clear(username, uuid);
+            res.json(getErrorMessage('\'username\' or \'orgName\''));
+            return;
+        }
+
+        const token = jwt.sign({
+            exp: Math.floor(Date.now() / 1000) + parseInt(config.jwt_expiretime),
+            username: username,
+            orgName: orgName
+        }, app.get('secret'));
+
+        const adminEnrollResult = await adminActions.enroll();
+        if (!adminEnrollResult.success) {
+            res.statusCode = 400;
+            EnrollmentDecision.clear(username, uuid);
+            res.json(adminEnrollResult);
+            return;
+        }
+
+        const userEnrollResult = await userActions.enroll(username);
+        if (userEnrollResult.success) {
+            EnrollmentDecision.clear(username, uuid);
+            res.json({token: token});
+        } else {
+            res.statusCode = 400;
+            EnrollmentDecision.clear(username, uuid);
+            res.json(userEnrollResult)
+        }
     }
 
-    const token = jwt.sign({
-        exp: Math.floor(Date.now() / 1000) + parseInt(config.jwt_expiretime),
-        username: username,
-        orgName: orgName
-    }, app.get('secret'));
-
-    const adminEnrollResult = await adminActions.enroll();
-    if (!adminEnrollResult.success) {
-        res.statusCode = 400;
-        res.json(adminEnrollResult)
-        return;
-    }
-
-    const userEnrollResult = await userActions.enroll(username);
-    if (userEnrollResult.success) {
-        res.json({token: token});
-    } else {
-        res.statusCode = 400;
-        res.json(userEnrollResult)
-    }
+    handle(req, res);
 });
 
 // Invoke transaction on custom chaincode.

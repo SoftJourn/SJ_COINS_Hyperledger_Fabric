@@ -19,11 +19,24 @@ type FoundationChain struct {
 	contractapi.Contract
 }
 
+type AllowanceRequest struct {
+	ProjectId string `json:"projectId"`
+	UserId    string `json:"userId"`
+	Amount    uint   `json:"amount"`
+}
+
 type WithdrawDetails struct {
 	Amount uint      `json:"amount"`
 	Id     uint      `json:"id"`
 	Time   time.Time `json:"time"`
 	Note   string    `json:"note"`
+}
+
+type WithdrawRequest struct {
+	ProjectId string `json:"projectId"`
+	Recipient string `json:"recipient"`
+	Amount uint 		 `json:"amount"`
+	Note string 		 `json:"note"`
 }
 
 type Donation struct {
@@ -41,6 +54,7 @@ type DonationRequest struct {
 
 type Foundation struct {
 	Name               string                  `json:"name"`               //Foundation name
+	Image              string                  `json:"image"`
 	CreatorId          string                  `json:"creatorId"`          //Foundation founder ID
 	AdminID            string                  `json:"adminId"`            //Foundation admin ID
 	FundingGoal        uint                    `json:"fundingGoal"`        //Amount of coins to collect
@@ -62,6 +76,7 @@ type Foundation struct {
 
 type FoundationProject struct {
 	Name               string          `json:"name"`
+	Image              string          `json:"image"`
 	CreatorId          string          `json:"creatorId"`
 	AdminID            string          `json:"adminId"`
 	FundingGoal        uint            `json:"fundingGoal"`
@@ -74,6 +89,7 @@ type FoundationProject struct {
 
 type FoundationView struct {
 	Name               string          `json:"name"`
+	Image              string          `json:"image"`
 	CreatorId          string          `json:"creatorId"`
 	AdminID            string          `json:"adminId"`
 	FundingGoal        uint            `json:"fundingGoal"`
@@ -82,11 +98,12 @@ type FoundationView struct {
 	MainCurrency       string          `json:"mainCurrency"`
 	Deadline           time.Time       `json:"deadline"`
 	CloseOnGoalReached bool            `json:"closeOnGoalReached"`
-	AcceptCurrencies   map[string]bool `json:"acceptCurrencies"`
 	WithdrawalAllowed  bool            `json:"withdrawAllowed"`
 	FundingGoalReached bool            `json:"fundingGoalReached"`
 	IsContractClosed   bool            `json:"isContractClosed"`
 	IsDonationReturned bool            `json:"isDonationReturned"`
+	AcceptCurrencies   map[string]bool `json:"acceptCurrencies"`
+	AllowanceMap       map[string]uint `json:"allowanceMap"`
 }
 
 type UserBalance struct {
@@ -135,17 +152,6 @@ func (t *FoundationChain) InitLedger(ctx contractapi.TransactionContextInterface
 
 func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInterface, foundationJson string) error {
 
-	/* args
-	0 - foundation Name
-	1 - admin account
-	2 - foundation creator
-	3 - Goal
-	4 - Deadline Minutes
-	5 - Close on reached goal
-	6 - withdraw allowed
-	7 - Currency
-	... n - accept currencies
-	*/
 	project := new(FoundationProject)
 	err := json.Unmarshal([]byte(foundationJson), &project)
 
@@ -167,6 +173,7 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 
 	foundation := Foundation{}
 	foundation.Name = project.Name
+	foundation.Image = project.Image
 	foundation.AdminID = project.AdminID
 	foundation.CreatorId = project.CreatorId
 	foundation.FundingGoal = project.FundingGoal
@@ -233,6 +240,9 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, do
 
 	request := new(DonationRequest)
 	err := json.Unmarshal([]byte(donationRequestJson), &request)
+	if err != nil {
+		return nil, err
+	}
 
 	foundations, err := getFoundationsMap(stub)
 	if err != nil {
@@ -394,7 +404,7 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 	return uint64(foundation.ContractRemains), nil
 }
 
-func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, args []string) error {
+func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, withdrawRequestJson string) error {
 
 	/* args
 	0 - foundation name
@@ -405,28 +415,25 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 
 	stub := ctx.GetStub()
 
-	if len(args) != 4 {
-		return errors.New("Incorrect number of arguments. Expecting 4")
+	request := new(WithdrawRequest)
+	err := json.Unmarshal([]byte(withdrawRequestJson), &request)
+	if err != nil {
+		return err
 	}
-
-	foundationName := args[0]
-	receiverId := args[1]
-	amountString := args[2]
-	note := args[3]
 
 	foundations, err := getFoundationsMap(stub)
 	if err != nil {
 		return errors.New(err.Error())
 	}
 
-	foundation, ok := foundations[foundationName]
+	foundation, ok := foundations[request.ProjectId]
 	if !ok {
 		return errors.New("Foundation does not exist.")
 	}
 
-	amount := t.parseAmountUint(amountString)
-	fmt.Println("amount: ", amount)
-	fmt.Println("note: ", note)
+	// amount := t.parseAmountUint(amountString)
+	fmt.Println("amount: ", request.Amount)
+	fmt.Println("note: ", request.Note)
 	fmt.Println("contractRemains: ", foundation.ContractRemains)
 
 	currentUserId, err := getCurrentUserId(stub)
@@ -434,7 +441,7 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 		return errors.New(err.Error())
 	}
 
-	if !foundation.WithdrawalAllowed || foundation.AllowanceMap[currentUserId] < amount {
+	if !foundation.WithdrawalAllowed || foundation.AllowanceMap[currentUserId] < request.Amount {
 		return errors.New("withdrawal not allowed")
 	}
 
@@ -442,7 +449,7 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 		return errors.New("contract is not closed")
 	}
 
-	if amount > foundation.ContractRemains {
+	if request.Amount > foundation.ContractRemains {
 		return errors.New("not enough funds")
 	}
 
@@ -455,7 +462,7 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 	*/
 
 	fmt.Println("Invoke transferFrom method on: ", foundation.MainCurrency)
-	queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Name, userAccountType, receiverId, strconv.FormatUint(uint64(amount), 10))
+	queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Name, userAccountType, request.Recipient, strconv.FormatUint(uint64(request.Amount), 10))
 	response := stub.InvokeChaincode(foundation.MainCurrency, queryArgs, channelName)
 	fmt.Println("Response status: ", response.Status)
 
@@ -463,9 +470,10 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 		return errors.New(response.Message)
 	}
 
-	foundation.ContractRemains -= amount
+	foundation.ContractRemains -= request.Amount
+	foundation.AllowanceMap[currentUserId] -= request.Amount
 
-	newDetail := WithdrawDetails{Time: time.Now(), Amount: amount, Note: note, Id: uint(len(foundation.WithdrawDetailsMap) + 1)}
+	newDetail := WithdrawDetails{Time: time.Now(), Amount: request.Amount, Note: request.Note, Id: uint(len(foundation.WithdrawDetailsMap) + 1)}
 	foundation.WithdrawDetailsMap[len(foundation.WithdrawDetailsMap)+1] = newDetail
 	fmt.Println("detailsMap: ", foundation.WithdrawDetailsMap)
 
@@ -480,31 +488,22 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 }
 
 // Set amount of allowed withdraw for user.
-func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterface, args []string) error {
-
-	/* args
-	0 - foundation name
-	1 - user ID
-	2 - amount
-	*/
+func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterface, allowanceRequestJson string) error {
 
 	stub := ctx.GetStub()
 
-	if len(args) != 3 {
-		return errors.New("Incorrect number of arguments. Expecting 3")
+	request := new(AllowanceRequest)
+	err := json.Unmarshal([]byte(allowanceRequestJson), &request)
+	if err != nil {
+		return err
 	}
-
-	foundationName := args[0]
-	userId := args[1]
-	amountString := args[2]
-	amount := t.parseAmountUint(amountString)
 
 	foundations, err := getFoundationsMap(stub)
 	if err != nil {
 		return errors.New(err.Error())
 	}
 
-	foundation, exist := foundations[foundationName]
+	foundation, exist := foundations[request.ProjectId]
 	if !exist {
 		return errors.New("Foundation does not exist.")
 	}
@@ -514,15 +513,12 @@ func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterfa
 		return errors.New(err.Error())
 	}
 
-	if currentUserId == foundation.AdminID && foundation.WithdrawalAllowed || currentUserId == foundation.Name {
-		//userAccount, err := stub.CreateCompositeKey(userType, []string{userId})
-		//if err != nil {
-		//	return shim.Error(err.Error())
-		//}
-
-		//foundation.AllowanceMap[userAccount] = amount
-
-		foundation.AllowanceMap[userId] = amount
+	if currentUserId == foundation.AdminID && foundation.WithdrawalAllowed {
+		if (request.Amount == 0) {
+			delete(foundation.AllowanceMap, request.UserId)
+		} else {
+			foundation.AllowanceMap[request.UserId] = request.Amount
+		}
 		foundations[foundation.Name] = foundation
 		saveFoundations(stub, foundations)
 		return nil
@@ -618,6 +614,7 @@ func saveFoundations(stub shim.ChaincodeStubInterface, mapObject map[string]Foun
 func getViewFromFoundation(foundation *Foundation) *FoundationView {
 	view := new(FoundationView)
   view.Name = foundation.Name
+  view.Image = foundation.Image
   view.CreatorId = foundation.CreatorId
   view.AdminID = foundation.AdminID
   view.FundingGoal = foundation.FundingGoal
@@ -631,6 +628,7 @@ func getViewFromFoundation(foundation *Foundation) *FoundationView {
   view.FundingGoalReached = foundation.FundingGoalReached
   view.IsContractClosed = foundation.IsContractClosed
   view.IsDonationReturned = foundation.IsDonationReturned
+  view.AllowanceMap = foundation.AllowanceMap
 
   return view;
 }
