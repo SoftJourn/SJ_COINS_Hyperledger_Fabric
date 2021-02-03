@@ -127,7 +127,7 @@ func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiv
 	balancesMap := t.getMap(ctx, balancesKey)
 
 	if balancesMap[currentUserAccount] < amount {
-		return nil, errors.New("not enough coins")
+		return nil, errors.New("Not enough coins")
 	}
 
 	balancesMap[currentUserAccount] -= amount

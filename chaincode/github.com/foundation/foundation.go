@@ -35,8 +35,8 @@ type WithdrawDetails struct {
 type WithdrawRequest struct {
 	ProjectId string `json:"projectId"`
 	Recipient string `json:"recipient"`
-	Amount uint 		 `json:"amount"`
-	Note string 		 `json:"note"`
+	Amount uint      `json:"amount"`
+	Note string      `json:"note"`
 }
 
 type Donation struct {
@@ -47,8 +47,8 @@ type Donation struct {
 }
 
 type DonationRequest struct {
-	ProjectId	string `json:"projectId"`
-	Amount  	uint 	 `json:"amount"`
+	ProjectId string `json:"projectId"`
+	Amount    uint   `json:"amount"`
 	Currency  string `json:"currency"`
 }
 
@@ -72,6 +72,8 @@ type Foundation struct {
 	IsContractClosed   bool                    `json:"isContractClosed"`
 	IsDonationReturned bool                    `json:"isDonationReturned"`
 	AllowanceMap       map[string]uint         `json:"allowanceMap"` //Map with allowance info
+	Status             uint                    `json:"status"`
+	CategoryId         uint                    `json:"categoryId"`
 }
 
 type FoundationProject struct {
@@ -85,6 +87,8 @@ type FoundationProject struct {
 	CloseOnGoalReached bool            `json:"closeOnGoalReached"`
 	AcceptCurrencies   map[string]bool `json:"acceptCurrencies"`
 	WithdrawalAllowed  bool            `json:"withdrawAllowed"`
+	Status             uint            `json:"status"`
+	CategoryId         uint            `json:"categoryId"`
 }
 
 type FoundationView struct {
@@ -104,6 +108,8 @@ type FoundationView struct {
 	IsDonationReturned bool            `json:"isDonationReturned"`
 	AcceptCurrencies   map[string]bool `json:"acceptCurrencies"`
 	AllowanceMap       map[string]uint `json:"allowanceMap"`
+	Status             uint            `json:"status"`
+	CategoryId         uint            `json:"categoryId"`
 }
 
 type UserBalance struct {
@@ -177,9 +183,7 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	foundation.AdminID = project.AdminID
 	foundation.CreatorId = project.CreatorId
 	foundation.FundingGoal = project.FundingGoal
-	duration := time.Minute * time.Duration(project.Deadline)
-	currentTime := time.Now()
-	foundation.Deadline = currentTime.Add(duration)
+	foundation.Deadline = time.Unix(int64(project.Deadline), 0)
 	foundation.CloseOnGoalReached = project.CloseOnGoalReached
 	foundation.MainCurrency = project.MainCurrency
 	foundation.AcceptCurrencies = project.AcceptCurrencies
@@ -188,6 +192,8 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	foundation.WithdrawDetailsMap = make(map[int]WithdrawDetails)
 	foundation.WithdrawalAllowed = project.WithdrawalAllowed
 	foundation.AllowanceMap = make(map[string]uint)
+	foundation.CategoryId = project.CategoryId
+	foundation.Status = project.Status
 	foundations[foundation.Name] = foundation
 	err = saveFoundations(stub, foundations)
 	if err != nil {
@@ -197,7 +203,6 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	return nil
 }
 
-// Get foundations call handler. Just get a list of foundations' names.
 func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface) ([]*FoundationView, error) {
 
 	foundations, err := getFoundationsMap(ctx.GetStub())
@@ -213,7 +218,6 @@ func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInter
 	return views, nil
 }
 
-// Get foundation by name call handler.
 func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContextInterface, name string) (*FoundationView, error) {
 
 	foundations, err := getFoundationsMap(ctx.GetStub())
@@ -231,11 +235,6 @@ func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContext
 
 func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, donationRequestJson string) (*FoundationView, error) {
 
-	/* args
-	0 - currency name (docker container name - coin)
-	1 - amount
-	2 - foundation name
-	*/
 	stub := ctx.GetStub()
 
 	request := new(DonationRequest)
@@ -487,7 +486,6 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 	return nil
 }
 
-// Set amount of allowed withdraw for user.
 func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterface, allowanceRequestJson string) error {
 
 	stub := ctx.GetStub()
@@ -527,9 +525,9 @@ func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterfa
 	return errors.New("Failed to set allowance")
 }
 
-////////// Internal use functions ////////////
+////////// Internal functions ////////////
 
-func (t *FoundationChain) parseAmountUint(amount string) uint {
+func parseAmountUint(amount string) uint {
 	amount32, err := strconv.ParseUint(amount, 10, 32)
 	if err != nil {
 		return 0
@@ -537,7 +535,6 @@ func (t *FoundationChain) parseAmountUint(amount string) uint {
 	return uint(amount32)
 }
 
-// Check goal is reached.
 func checkGoalReached(foundation *Foundation) bool {
 
 	if foundation.CollectedAmount >= foundation.FundingGoal {
@@ -613,22 +610,24 @@ func saveFoundations(stub shim.ChaincodeStubInterface, mapObject map[string]Foun
 
 func getViewFromFoundation(foundation *Foundation) *FoundationView {
 	view := new(FoundationView)
-  view.Name = foundation.Name
-  view.Image = foundation.Image
-  view.CreatorId = foundation.CreatorId
-  view.AdminID = foundation.AdminID
-  view.FundingGoal = foundation.FundingGoal
-  view.CollectedAmount = foundation.CollectedAmount
-  view.RemainsAmount = foundation.ContractRemains
-  view.MainCurrency = foundation.MainCurrency
-  view.Deadline = foundation.Deadline
-  view.CloseOnGoalReached = foundation.CloseOnGoalReached
-  view.AcceptCurrencies = foundation.AcceptCurrencies
-  view.WithdrawalAllowed = foundation.WithdrawalAllowed
-  view.FundingGoalReached = foundation.FundingGoalReached
-  view.IsContractClosed = foundation.IsContractClosed
-  view.IsDonationReturned = foundation.IsDonationReturned
-  view.AllowanceMap = foundation.AllowanceMap
+	view.Name = foundation.Name
+	view.Image = foundation.Image
+	view.CreatorId = foundation.CreatorId
+	view.AdminID = foundation.AdminID
+	view.FundingGoal = foundation.FundingGoal
+	view.CollectedAmount = foundation.CollectedAmount
+	view.RemainsAmount = foundation.ContractRemains
+	view.MainCurrency = foundation.MainCurrency
+	view.Deadline = foundation.Deadline
+	view.CloseOnGoalReached = foundation.CloseOnGoalReached
+	view.AcceptCurrencies = foundation.AcceptCurrencies
+	view.WithdrawalAllowed = foundation.WithdrawalAllowed
+	view.FundingGoalReached = foundation.FundingGoalReached
+	view.IsContractClosed = foundation.IsContractClosed
+	view.IsDonationReturned = foundation.IsDonationReturned
+	view.AllowanceMap = foundation.AllowanceMap
+	view.CategoryId = foundation.CategoryId
+	view.Status = foundation.Status
 
-  return view;
+	return view;
 }
