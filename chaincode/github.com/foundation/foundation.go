@@ -129,17 +129,15 @@ type UserBalance struct {
 
 type Filter struct {
 	CreatorId string `json:"creatorId"`
+	Status    uint   `json:"status"`
 }
 
-type Status int
-
-// const (
-// 	DRAFT Status = iota
-// 	REVIEW
-// 	ACTIVE
-// 	CLOSED
-// 	REJECTED
-// )
+const STATUS_NONE uint = 0;
+const STATUS_DRAFT uint = 1
+const STATUS_REWIEW uint = 2
+const STATUS_ACTIVE uint = 4
+const STATUS_CLOSED uint = 8
+const STATUS_REJECTED uint = 16
 
 var channelName string = "mychannel"
 var foundationAccountType string = "foundation_"
@@ -201,6 +199,11 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 		return errors.New("Foundation already exists")
 	}
 
+	currentUserId, err := getCurrentUserId(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
 	idHash := md5.Sum([]byte(request.Name + strconv.Itoa(rand.Intn(99999)) + time.Now().Format(time.RFC3339)))
 
 	foundation := Foundation{}
@@ -215,7 +218,7 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	foundation.CloseOnGoalReached = request.CloseOnGoalReached
 	foundation.MainCurrency = request.MainCurrency
 	foundation.AcceptCurrencies = request.AcceptCurrencies
-	foundation.CreatorId = request.CreatorId
+	foundation.CreatorId = currentUserId
 	foundation.AdminID = request.AdminID
 	foundation.DonationsMapTotal = make(map[string]uint)
 	foundation.DonationsMap = make(map[string]Donation)
@@ -244,11 +247,28 @@ func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInter
 		return nil, errors.New(err.Error())
 	}
 
+	currentUserId, err := getCurrentUserId(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
+	var statusMask uint = STATUS_ACTIVE | STATUS_CLOSED;
+	if (len(filter.CreatorId) > 0 && filter.CreatorId == currentUserId)
+			|| (filter.Status != STATUS_NONE && (filter.Status & statusMask) != STATUS_NONE) {
+		statusMask = filter.Status & statusMask
+	}
+
 	views := []*FoundationView{}
 	for _, foundation := range(foundations) {
-		if (len(filter.CreatorId) == 0 || foundation.CreatorId == filter.CreatorId) {
-			views = append(views, getViewFromFoundation(&foundation))
+		if (len(filter.CreatorId) > 0 && foundation.CreatorId != filter.CreatorId) {
+			continue
 		}
+
+		if (statusMask != STATUS_NONE && (foundation.Status & statusMask) == 0) {
+			continue
+		}
+
+		views = append(views, getViewFromFoundation(&foundation))
 	}
 
 	return views, nil
@@ -563,6 +583,43 @@ func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterfa
 
 	return errors.New("Failed to set allowance")
 }
+
+// func (t *FoundationChain) SetStatus(ctx contractapi.TransactionContextInterface, projectId string, status uint) error {
+
+// 	stub := ctx.GetStub()
+
+// 	foundations, err := getFoundationsMap(stub)
+// 	if err != nil {
+// 		return errors.New(err.Error())
+// 	}
+
+// 	foundation, exist := foundations[projectId]
+// 	if !exist {
+// 		return errors.New("Foundation does not exist.")
+// 	}
+
+// 	currentUserId, err := getCurrentUserId(stub)
+// 	if err != nil {
+// 		return errors.New(err.Error())
+// 	}
+
+// 	if status < STATUS_DRAFT || status > STATUS_REJECTED {
+// 		return errors.New("Invalid status value")
+// 	}
+
+// 	if currentUserId != foundation.AdminID
+// 			|| !(foundation.Status == STATUS_DRAFT && status == STATUS_REWIEW
+// 					&& foundation.CreatorId == currentUserId)
+// 	{
+// 		return errors.New("Permission denied")
+// 	}
+
+// 	foundation.Status = status
+// 	foundations[foundation.Name] = foundation
+// 	saveFoundations(stub, foundations)
+	
+// 	return nil
+// }
 
 ////////// Internal functions ////////////
 
