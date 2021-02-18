@@ -2,13 +2,11 @@ package main
 
 import (
 	"crypto/x509"
-	"crypto/md5"
 	"encoding/json"
 	"encoding/pem"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/rand"	
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/hyperledger/fabric/common/util"
+	"github.com/google/uuid"
 )
 
 type FoundationChain struct {
@@ -72,6 +71,7 @@ type Foundation struct {
 	Status             uint                  `json:"status"`
 	CreatorId          string                `json:"creatorId"`          // Foundation founder ID
 	AdminID            string                `json:"adminId"`            // Foundation admin ID
+	CreatedAt          time.Time             `json:"createdAt"`
 	CloseOnGoalReached bool                  `json:"closeOnGoalReached"` // Condition of contract closing
 	FundingGoalReached bool                  `json:"fundingGoalReached"`
 	WithdrawalAllowed  bool                  `json:"withdrawAllowed"`
@@ -100,6 +100,7 @@ type CreateRequest struct {
 }
 
 type FoundationView struct {
+	Id                 string                `json:"id"`
 	Name               string                `json:"name"`
 	Image              string                `json:"image"`
 	CreatorId          string                `json:"creatorId"`
@@ -117,6 +118,7 @@ type FoundationView struct {
 	AcceptCurrencies   map[string]bool       `json:"acceptCurrencies"`
 	AllowanceMap       map[string]uint       `json:"allowanceMap"`
 	Status             uint                  `json:"status"`
+	CreatedAt          time.Time             `json:"createdAt"`
 	CategoryId         uint                  `json:"categoryId"`
 	DonationsMap       map[string]Donation   `json:"donationsMap"`
 	WithdrawalsMap     map[string]Withdrawal `json:"withdrawalsMap"`
@@ -204,10 +206,10 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 		return errors.New(err.Error())
 	}
 
-	idHash := md5.Sum([]byte(request.Name + strconv.Itoa(rand.Intn(99999)) + time.Now().Format(time.RFC3339)))
+	// idHash := md5.Sum([]byte(request.Name + strconv.Itoa(rand.Intn(99999)) + time.Now().Format(time.RFC3339)))
 
 	foundation := Foundation{}
-	foundation.Id = hex.EncodeToString(idHash[:])
+	foundation.Id = uuid.New().String()
 	foundation.Name = request.Name
 	foundation.CategoryId = request.CategoryId
 	foundation.Description = request.Description
@@ -220,6 +222,7 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 	foundation.AcceptCurrencies = request.AcceptCurrencies
 	foundation.CreatorId = currentUserId
 	foundation.AdminID = request.AdminID
+	foundation.CreatedAt = time.Now()
 	foundation.DonationsMapTotal = make(map[string]uint)
 	foundation.DonationsMap = make(map[string]Donation)
 	foundation.WithdrawalsMap = make(map[string]Withdrawal)
@@ -231,7 +234,7 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 		return errors.New(err.Error())
 	}
 
-	foundations[foundation.Name] = foundation
+	foundations[foundation.Id] = foundation
 	err = saveFoundations(stub, foundations)
 	if err != nil {
 		return errors.New(err.Error())
@@ -242,20 +245,21 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 
 func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInterface, filter Filter) ([]*FoundationView, error) {
 
-	foundations, err := getFoundationsMap(ctx.GetStub())
+	stub := ctx.GetStub()
+
+	foundations, err := getFoundationsMap(stub)
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
 
 	currentUserId, err := getCurrentUserId(stub)
 	if err != nil {
-		return errors.New(err.Error())
+		return nil, errors.New(err.Error())
 	}
 
 	var statusMask uint = STATUS_ACTIVE | STATUS_CLOSED;
-	if (len(filter.CreatorId) > 0 && filter.CreatorId == currentUserId)
-			|| (filter.Status != STATUS_NONE && (filter.Status & statusMask) != STATUS_NONE) {
-		statusMask = filter.Status & statusMask
+	if (len(filter.CreatorId) > 0 && filter.CreatorId == currentUserId) || (filter.Status != STATUS_NONE && (filter.Status & statusMask) == filter.Status) {
+		statusMask = filter.Status
 	}
 
 	views := []*FoundationView{}
@@ -271,17 +275,23 @@ func (t *FoundationChain) GetFoundations(ctx contractapi.TransactionContextInter
 		views = append(views, getViewFromFoundation(&foundation))
 	}
 
+	if (len(views) > 0) {
+		sort.SliceStable(views, func(i, j int) bool {
+			return views[i].CreatedAt.Before(views[j].CreatedAt)
+		})
+	}
+
 	return views, nil
 }
 
-func (t *FoundationChain) GetFoundationByName(ctx contractapi.TransactionContextInterface, name string) (*Foundation, error) {
+func (t *FoundationChain) GetFoundation(ctx contractapi.TransactionContextInterface, id string) (*Foundation, error) {
 
 	foundations, err := getFoundationsMap(ctx.GetStub())
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
 
-	foundation, exist := foundations[name]
+	foundation, exist := foundations[id]
 	if !exist {
 		return nil, errors.New("Foundation does not exist.")
 	}
@@ -327,7 +337,7 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, do
 	}
 
 	fmt.Println("Invoke Transfer method on: ", request.Currency)
-	queryArgs := util.ToChaincodeArgs("transfer", foundationAccountType, foundation.Name, fmt.Sprint(request.Amount))
+	queryArgs := util.ToChaincodeArgs("transfer", foundationAccountType, foundation.Id, fmt.Sprint(request.Amount))
 	response := stub.InvokeChaincode(request.Currency, queryArgs, channelName)
 	fmt.Println("Transfer Response status: ", response.Status)
 
@@ -355,11 +365,11 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, do
 
 		foundation.DonationsMapTotal[donationKey] += request.Amount
 		foundation.CollectedAmount += request.Amount
-		fmt.Println(foundation.Name, " - foundation.CollectedAmount ", foundation.CollectedAmount)
+		fmt.Println(foundation.Id, " - foundation.CollectedAmount ", foundation.CollectedAmount)
 
 		checkGoalReached(&foundation)
 
-		foundations[foundation.Name] = foundation
+		foundations[foundation.Id] = foundation
 		err = saveFoundations(stub, foundations)
 		if err != nil {
 			return errors.New(err.Error())
@@ -371,18 +381,18 @@ func (t *FoundationChain) Donate(ctx contractapi.TransactionContextInterface, do
 	return errors.New(response.Message)
 }
 
-func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInterface, name string) (uint64, error) {
+func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInterface, id string) (uint64, error) {
 
 	stub := ctx.GetStub()
 
-	fmt.Println("Foundation name: ", name)
+	fmt.Println("Foundation name: ", id)
 
 	foundations, err := getFoundationsMap(stub)
 	if err != nil {
 		return 0, errors.New(err.Error())
 	}
 
-	foundation, ok := foundations[name]
+	foundation, ok := foundations[id]
 	if !ok {
 		return 0, errors.New("Foundation does not exist.")
 	}
@@ -433,7 +443,7 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 					*/
 
 					fmt.Println("Invoke transferFrom method on: ", currency)
-					queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Name, userAccountType, parts[1], strconv.FormatUint(uint64(v), 10))
+					queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Id, userAccountType, parts[1], strconv.FormatUint(uint64(v), 10))
 					response := stub.InvokeChaincode(currency, queryArgs, channelName)
 					fmt.Println("Response status: ", response.Status)
 
@@ -451,7 +461,7 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 	}
 
 	foundation.IsContractClosed = true
-	foundations[foundation.Name] = foundation
+	foundations[foundation.Id] = foundation
 	err = saveFoundations(stub, foundations)
 	if err != nil {
 		return 0, errors.New(err.Error())
@@ -518,7 +528,7 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 	*/
 
 	fmt.Println("Invoke transferFrom method on: ", foundation.MainCurrency)
-	queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Name, userAccountType, request.Recipient, strconv.FormatUint(uint64(request.Amount), 10))
+	queryArgs := util.ToChaincodeArgs("transferFrom", foundationAccountType, foundation.Id, userAccountType, request.Recipient, strconv.FormatUint(uint64(request.Amount), 10))
 	response := stub.InvokeChaincode(foundation.MainCurrency, queryArgs, channelName)
 	fmt.Println("Response status: ", response.Status)
 
@@ -539,7 +549,7 @@ func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, 
 	foundation.WithdrawalsMap[strconv.Itoa(len(foundation.WithdrawalsMap)+1)] = newDetail
 	fmt.Println("detailsMap: ", foundation.WithdrawalsMap)
 
-	foundations[foundation.Name] = foundation
+	foundations[foundation.Id] = foundation
 	err = saveFoundations(stub, foundations)
 	if err != nil {
 		return errors.New(err.Error())
@@ -576,7 +586,7 @@ func (t *FoundationChain) SetAllowance(ctx contractapi.TransactionContextInterfa
 
 	if currentUserId == foundation.AdminID && foundation.WithdrawalAllowed {
 		updateAllowance(&foundation, request.UserId, request.Amount)
-		foundations[foundation.Name] = foundation
+		foundations[foundation.Id] = foundation
 		saveFoundations(stub, foundations)
 		return nil
 	}
@@ -706,6 +716,7 @@ func saveFoundations(stub shim.ChaincodeStubInterface, mapObject map[string]Foun
 
 func getViewFromFoundation(foundation *Foundation) *FoundationView {
 	view := new(FoundationView)
+	view.Id = foundation.Id
 	view.Name = foundation.Name
 	view.Image = foundation.Image
 	view.CreatorId = foundation.CreatorId
@@ -726,6 +737,7 @@ func getViewFromFoundation(foundation *Foundation) *FoundationView {
 	view.Status = foundation.Status
 	view.DonationsMap = foundation.DonationsMap
 	view.WithdrawalsMap = foundation.WithdrawalsMap
+	view.CreatedAt = foundation.CreatedAt
 
 	return view;
 }
