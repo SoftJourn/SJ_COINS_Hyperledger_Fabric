@@ -127,7 +127,7 @@ func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiv
 	balancesMap := t.getMap(ctx, balancesKey)
 
 	if balancesMap[currentUserAccount] < amount {
-		return nil, errors.New("not enough coins")
+		return nil, errors.New("Not enough coins")
 	}
 
 	balancesMap[currentUserAccount] -= amount
@@ -267,6 +267,52 @@ func (t *CoinChain) Refund(ctx contractapi.TransactionContextInterface, projectI
 	balancesResponse := new(UserBalance)
 	balancesResponse.UserId = projectAccount
 	balancesResponse.Balance = balancesMap[projectAccount]
+
+	return balancesResponse, nil
+}
+
+func (t *CoinChain) TransferFrom(ctx contractapi.TransactionContextInterface, fromType string, from string, toType string, to string, amount uint) (*UserBalance, error) {
+
+	fmt.Println("from " + from)
+	fmt.Println("to " + to)
+	fmt.Println("amount " + string(amount))
+
+	if amount == 0 {
+		return nil, errors.New("incorrect amount")
+	}
+
+	fromAccount, err := ctx.GetStub().CreateCompositeKey(fromType, []string{from})
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("fromAccount " + fromAccount)
+
+	toAccount, err := ctx.GetStub().CreateCompositeKey(toType, []string{to})
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("toAccount " + toAccount)
+
+	balancesMap := t.getMap(ctx, balancesKey)
+
+	if balancesMap[fromAccount] < int(amount) {
+		return nil, errors.New("not enough coins")
+	}
+
+	balancesMap[fromAccount] -= int(amount) // TODO: Such conversion isn't good. Should be changed to safe conversion.
+	balancesMap[toAccount] += int(amount)
+
+	err = t.saveMap(ctx, balancesKey, balancesMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// Do not invoke BalanceOf method. At this time ledger is not updated yet.
+	balancesResponse := new(UserBalance)
+	balancesResponse.UserId = fromAccount
+	balancesResponse.Balance = balancesMap[fromAccount]
 
 	return balancesResponse, nil
 }

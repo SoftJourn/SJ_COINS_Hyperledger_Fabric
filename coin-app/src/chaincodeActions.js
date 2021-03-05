@@ -5,14 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config.json')
 
-async function invoke(user, fcn, args, isObject) {
+async function invokeCode(user, code, fcn, args, isObject) {
     try {
         const gateway = await loadGateway(user);
         // Get the network (channel) our contract is deployed to.
         const network = await gateway.getNetwork(config.channelName);
 
         // Get the contract from the network.
-        const contract = network.getContract(config.chaincodeName);
+        const contract = network.getContract(code);
         const transaction = contract.createTransaction(fcn);
         let result;
 
@@ -44,14 +44,14 @@ async function invoke(user, fcn, args, isObject) {
     }
 }
 
-async function query(user, fcn, args, isObject) {
+async function queryCode(user, code, fcn, args, isObject) {
     try {
         const gateway = await loadGateway(user);
         // Get the network (channel) our contract is deployed to.
         const network = await gateway.getNetwork(config.channelName);
 
         // Get the contract from the network.
-        const contract = network.getContract(config.chaincodeName);
+        const contract = network.getContract(code);
         const transaction = contract.createTransaction(fcn);
         let result;
 
@@ -82,6 +82,20 @@ async function query(user, fcn, args, isObject) {
     }
 }
 
+async function invoke(user, fcn, args, isObject) {
+    let chaincodeName = fcn == 'createFoundation'
+        ? 'foundation'
+        : config.chaincodeName;
+    return await invokeCode(user, chaincodeName, fcn, args, isObject)
+}
+
+async function query(user, fcn, args, isObject) {
+    let chaincodeName = fcn == 'getFoundations'
+          ? 'foundation'
+          : config.chaincodeName;
+    return await queryCode(user, chaincodeName, fcn, args, isObject);
+}
+
 async function loadGateway(user) {
     // Load the network configuration
     const ccpPath = path.resolve(process.cwd(), 'connection-profile.json');
@@ -105,4 +119,6 @@ async function loadGateway(user) {
 }
 
 exports.invoke = invoke;
+exports.invokeCode = invokeCode;
 exports.query = query;
+exports.queryCode = queryCode;

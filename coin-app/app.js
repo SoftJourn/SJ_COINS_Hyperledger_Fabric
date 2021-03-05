@@ -96,6 +96,61 @@ function getErrorMessage(field) {
     };
 }
 
+// WARN: This is quick but not good solution for sequential enroll requests.
+var EnrollmentDecision = {
+    queue: {},
+
+    init: function(id) {
+        if (!this.queue[id]) {
+            this.queue[id] = [];
+        }
+
+        let uuid = this.getUUID();
+        this.queue[id].push({uuid: uuid, time: +new Date()});
+
+        return uuid;
+    },
+
+    acquire: function(id, uuid) {
+        let queue = this.queue[id];
+
+        while (queue.length > 0) {
+            let next = queue[0];
+
+            if (next.uuid != uuid) {
+                if (next.time < ((+new Date()) - 3000)) {
+                    queue.shift();
+                    continue;
+                } else {
+                    return false;
+                }
+            } else {
+                return true;
+            }
+        }
+
+        return true;
+    },
+
+    clear: function(id, uuid) {
+        if (!this.queue[id]) {
+            return;
+        }
+
+        let index = this.queue[id].findIndex(function (e) { return e.uuid == uuid; });
+        if (index > -1) {
+            this.queue[id].splice(index, 1);
+        }
+    },
+
+    getUUID: function() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////// REST ENDPOINTS START HERE ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,34 +160,80 @@ app.post('/enroll', async function (req, res) {
     const username = req.body.username;
     const orgName = req.body.orgName;
 
-    logger.debug(`Endpoint : /users, Username: ${username}, OrgName: ${orgName}`);
+    logger.debug(`Endpoint : /enroll, Username: ${username}, OrgName: ${orgName}`);
 
-    if (!username) {
+    let uuid = EnrollmentDecision.init(username);
+
+    // TODO: Change this implementation of sequential processing to correct one.
+    async function handle(req, res) {
+        if (!EnrollmentDecision.acquire(username, uuid)) {
+            setTimeout(function() { handle(req, res); }, 1000);
+            return;
+        }
+
+        if (!username) {
+            res.statusCode = 400;
+            EnrollmentDecision.clear(username, uuid);
+            res.json(getErrorMessage('\'username\' or \'orgName\''));
+            return;
+        }
+
+        const token = jwt.sign({
+            exp: Math.floor(Date.now() / 1000) + parseInt(config.jwt_expiretime),
+            username: username,
+            orgName: orgName
+        }, app.get('secret'));
+
+        const adminEnrollResult = await adminActions.enroll();
+        if (!adminEnrollResult.success) {
+            res.statusCode = 400;
+            EnrollmentDecision.clear(username, uuid);
+            res.json(adminEnrollResult);
+            return;
+        }
+
+        const userEnrollResult = await userActions.enroll(username);
+        if (userEnrollResult.success) {
+            EnrollmentDecision.clear(username, uuid);
+            res.json({token: token});
+        } else {
+            res.statusCode = 400;
+            EnrollmentDecision.clear(username, uuid);
+            res.json(userEnrollResult)
+        }
+    }
+
+    handle(req, res);
+});
+
+// Invoke transaction on custom chaincode.
+app.post('/invoke/:chaincode', async function (req, res) {
+    const isObject = req.body.isObject || false;
+    const chaincode = req.params.chaincode;
+    const fcn = req.body.fcn;
+    const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
+
+    logger.debug(`Invoke function: ${fcn} with arguments: ${args}`);
+
+    if (!chaincode) {
+      res.statusCode = 400;
+      res.json(getErrorMessage('\'chaincode\''));
+      return;
+    }
+
+    if (!fcn) {
         res.statusCode = 400;
-        res.json(getErrorMessage('\'username\' or \'orgName\''));
+        res.json(getErrorMessage('\'fcn\''));
         return;
     }
 
-    const token = jwt.sign({
-        exp: Math.floor(Date.now() / 1000) + parseInt(config.jwt_expiretime),
-        username: username,
-        orgName: orgName
-    }, app.get('secret'));
-
-    const adminEnrollResult = await adminActions.enroll();
-    if (!adminEnrollResult.success) {
+    if (!args) {
         res.statusCode = 400;
-        res.json(adminEnrollResult)
+        res.json(getErrorMessage('\'args\''));
         return;
     }
 
-    const userEnrollResult = await userActions.enroll(username);
-    if (userEnrollResult.success) {
-        res.json({token: token});
-    } else {
-        res.statusCode = 400;
-        res.json(userEnrollResult)
-    }
+    res.send(await chaincodeActions.invokeCode(req.username, chaincode, fcn, args, isObject));
 });
 
 // Invoke transaction on chaincode
@@ -157,6 +258,36 @@ app.post('/invoke', async function (req, res) {
 
     let message = await chaincodeActions.invoke(req.username, fcn, args, isObject);
     res.send(message);
+});
+
+// Query transaction on custom chaincode.
+app.post('/query/:chaincode', async function (req, res) {
+    const isObject = req.body.isObject || false;
+    const chaincode = req.params.chaincode;
+    const fcn = req.body.fcn;
+    const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
+
+    logger.debug(`Query function: ${fcn} with arguments: ${args}`);
+
+    if (!chaincode) {
+      res.statusCode = 400;
+      res.json(getErrorMessage('\'chaincode\''));
+      return;
+    }
+
+    if (!fcn) {
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'fcn\''));
+        return;
+    }
+
+    if (!args) {
+        res.statusCode = 400;
+        res.json(getErrorMessage('\'args\''));
+        return;
+    }
+
+    res.send(await chaincodeActions.queryCode(req.username, chaincode, fcn, args, isObject));
 });
 
 // Query transaction on chaincode

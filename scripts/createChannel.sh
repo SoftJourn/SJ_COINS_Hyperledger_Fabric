@@ -12,19 +12,25 @@ export CORE_PEER_MSPCONFIGPATH=${PWD}/../configurations/peerOrganizations/sjfabr
 export CORE_PEER_ADDRESS=localhost:7051
 
 # Delete previous channel configuration
+echo "[${CHANNEL_NAME}] Delete previous channel configuration"
 rm -rf ${PWD}/../configurations/channel-artifacts
 
 # Create channel configuration transaction
+echo "[${CHANNEL_NAME}] Create channel configuration transaction"
 ../bin/configtxgen -profile SingleOrgChannel -configPath ${PWD}/../config -outputCreateChannelTx ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.tx -channelID ${CHANNEL_NAME}
 
 # Create anchor peer update transaction
+echo "[${CHANNEL_NAME}] Create anchor peer update transaction"
 ../bin/configtxgen -profile SingleOrgChannel -outputAnchorPeersUpdate ${PWD}/../configurations/channel-artifacts/CoinsOrgAnchor.tx -channelID ${CHANNEL_NAME} -asOrg CoinsOrg
 
 # Create channel
+echo "[${CHANNEL_NAME}] Create channel"
 ../bin/peer channel create -o localhost:7050 -c ${CHANNEL_NAME} --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua -f ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.tx --outputBlock ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.block --tls --cafile ${ORDERER_CA}
 
 # Join channel
+echo "[${CHANNEL_NAME}] Join channel"
 ../bin/peer channel join -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua -b ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.block --tls --cafile ${ORDERER_CA}
 
 # Update anchor peer (optional as channel created in this org)
+echo "[${CHANNEL_NAME}] Update anchor peer (optional as channel created in this org)"
 ../bin/peer channel update -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua -c ${CHANNEL_NAME} -f ../configurations/channel-artifacts/CoinsOrgAnchor.tx --tls --cafile ${ORDERER_CA}
