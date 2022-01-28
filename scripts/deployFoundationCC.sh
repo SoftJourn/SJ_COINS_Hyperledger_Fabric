@@ -1,11 +1,12 @@
 #!/bin/bash
 
+# Variables for internal use.
 export FABRIC_CFG_PATH=${PWD}/../config/
-export CHANNEL_NAME=mychannel
-export CHAINCODE_NAME=coins
+export CHANNEL_NAME=mychannel # Configure more real life name for channel.
+export CHAINCODE_NAME=foundation # Configure more real life name for chaincode.
 export CHAINCODE_VERSION=2_0
 export SEQUENCE=1 # CHAINCODE_VERSION as number minus 1
-
+export CHAINCODE_PATH='../chaincode/github.com/foundation'
 export PEER_TLS=${PWD}/../configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/tls/ca.crt
 
 # Export Hyperledger-specific env variables. NOTE: they override values from ../config/core.yaml so it is okay
@@ -17,7 +18,7 @@ export CORE_PEER_MSPCONFIGPATH=${PWD}/../configurations/peerOrganizations/sjfabr
 export CORE_PEER_ADDRESS=localhost:7051
 
 echo "[${CHAINCODE_NAME}] Build chaincode"
-pushd ../chaincode/github.com/coins || exit
+pushd ${CHAINCODE_PATH} || exit
 GO111MODULE=on go mod vendor
 popd || exit
 
@@ -25,7 +26,7 @@ echo "[${CHAINCODE_NAME}] Remove existing chaincode .tar.gz"
 rm -rf ${CHAINCODE_NAME}.tar.gz
 
 echo "[${CHAINCODE_NAME}] Package chaincode"
-../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/../chaincode/github.com/coins --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
+../bin/peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz --path ${PWD}/${CHAINCODE_PATH} --lang golang --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
 
 echo "[${CHAINCODE_NAME}] Install chaincode"
 ../bin/peer lifecycle chaincode install ${CHAINCODE_NAME}.tar.gz -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA}
@@ -78,18 +79,9 @@ do
   sleep 1
 done
 
+# Invoke init method
 echo "[${CHAINCODE_NAME}] Invoke init method"
-RESPONSE=$(../bin/peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --isInit -c '{"function":"initLedger","Args":["sj_coin", "SJCoin"]}' --peerAddresses localhost:7051 --tlsRootCertFiles ${PEER_TLS})
-
-sleep 10
-
-echo "[${CHAINCODE_NAME}] Register minter via web app"
-TOKEN=$(echo $(curl -d '{"username":"sj_coin","orgName":"CoinsOrg"}' -H "Content-Type: application/json" -X POST "http://localhost:4000/enroll") | sed -E 's/.*"token":"?([^,"]*)"?.*/\1/')
-
-echo "[${CHAINCODE_NAME}] Mint 10_000_000 SJCoins"
-curl -d '{"fcn":"mint","args":[10000000]}' -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -X POST "http://localhost:4000/invoke"
-
-# TODO Handle error -> orderer.sjfabric.softjourn.if.ua     | 2020-06-19 14:45:45.878 UTC [orderer.common.broadcast] Handle -> WARN 053 Error reading from 192.168.160.1:60162: rpc error: code = Canceled desc = context canceled
+../bin/peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua --tls --cafile ${ORDERER_CA} --channelID ${CHANNEL_NAME} --name ${CHAINCODE_NAME} --isInit -c '{"function":"initLedger","Args":[]}' --peerAddresses localhost:7051 --tlsRootCertFiles ${PEER_TLS}
 
 echo "[${CHAINCODE_NAME}] Remove existing chaincode .tar.gz"
 rm -rf ${CHAINCODE_NAME}.tar.gz
