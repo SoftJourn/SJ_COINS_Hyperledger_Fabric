@@ -99,6 +99,17 @@ type CreateRequest struct {
 	WithdrawalAllowed  bool            `json:"withdrawAllowed"`
 }
 
+type UpdateRequest struct {
+	Id                 string `json:"id"`
+	Name               string `json:"name"`
+	Image              string `json:"image"`
+	CategoryId         uint   `json:"categoryId"`
+	Description        string `json:"description"`
+	FundingGoal        uint   `json:"fundingGoal"`
+	Deadline           uint   `json:"deadline"`
+	CloseOnGoalReached bool   `json:"closeOnGoalReached"`
+}
+
 type FoundationView struct {
 	Id                 string                `json:"id"`
 	Name               string                `json:"name"`
@@ -196,11 +207,6 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 		return errors.New(err.Error())
 	}
 
-	_, exist := foundations[request.Name]
-	if exist {
-		return errors.New("Foundation already exists")
-	}
-
 	currentUserId, err := getCurrentUserId(stub)
 	if err != nil {
 		return errors.New(err.Error())
@@ -236,6 +242,58 @@ func (t *FoundationChain) CreateFoundation(ctx contractapi.TransactionContextInt
 
 	foundations[foundation.Id] = foundation
 	err = saveFoundations(stub, foundations)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
+	return nil
+}
+
+func (t *FoundationChain) UpdateFoundation(ctx contractapi.TransactionContextInterface, requestJson string) error {
+
+	request := new(UpdateRequest)
+	err := json.Unmarshal([]byte(requestJson), &request)
+
+	if err != nil {
+		return err
+	}
+
+	stub := ctx.GetStub()
+
+	foundations, err := getFoundationsMap(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
+	foundation, exist := foundations[request.Id]
+	if !exist {
+		return errors.New("Foundation doesn't exists")
+	}
+
+	currentUserId, err := getCurrentUserId(stub)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
+	if foundation.Status != STATUS_DRAFT {
+		return errors.New("Foundation is not in draft status")
+	}
+
+	foundation.Name = request.Name
+	foundation.CategoryId = request.CategoryId
+	foundation.Description = request.Description
+
+	if request.image {
+		foundation.Image = request.Image
+	}
+
+	foundation.FundingGoal = request.FundingGoal
+	foundation.Deadline = time.Unix(int64(request.Deadline), 0)
+	foundation.CloseOnGoalReached = request.CloseOnGoalReached
+
+	foundations[foundation.Id] = foundation
+	err = saveFoundations(stub, foundations)
+
 	if err != nil {
 		return errors.New(err.Error())
 	}
@@ -471,13 +529,6 @@ func (t *FoundationChain) CloseFoundation(ctx contractapi.TransactionContextInte
 }
 
 func (t *FoundationChain) Withdraw(ctx contractapi.TransactionContextInterface, withdrawRequestJson string) error {
-
-	/* args
-	0 - foundation name
-	1 - receiverId (user_ type)
-	2 - amount
-	3 - note
-	*/
 
 	stub := ctx.GetStub()
 
