@@ -46,7 +46,8 @@ app.use(bodyParser.urlencoded({
 // Set secret variable
 app.set('secret', 'EcEATUqDpEcc');
 app.use(expressJWT({
-    secret: 'EcEATUqDpEcc'
+    secret: 'EcEATUqDpEcc',
+    algorithms: ['sha1', 'RS256', 'HS256']
 }).unless({
     path: ['/enroll']
 }));
