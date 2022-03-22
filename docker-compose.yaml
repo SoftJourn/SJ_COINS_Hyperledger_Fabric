@@ -26,11 +26,11 @@ services:
       - FABRIC_CA_SERVER_PORT=7054
     ports:
       - "7054:7054"
-    command: sh -c 'fabric-ca-server start -b admin:adminpw -d -c /etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml'
+    command: sh -c 'fabric-ca-server start --cfg.identities.allowremove --cfg.affiliations.allowremove -b admin:adminpw -d -c /etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml'
     volumes:
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/ca/:/etc/hyperledger/fabric-ca-server-config
       - ./config/fabric-ca-server-config.yaml:/etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml
-      - ${CONFIG_ROOT}/ca:/app_data
+      - /Users/vlad/config/ca:/app_data
     networks:
       - coins
 
@@ -58,7 +58,7 @@ services:
       - ./configurations/system-genesis-block/genesis.block:/etc/hyperledger/configtx/genesis.block
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/msp:/var/hyperledger/orderer/msp
       - ./configurations/ordererOrganizations/sjfabric.softjourn.if.ua/orderers/orderer.sjfabric.softjourn.if.ua/tls:/var/hyperledger/orderer/tls
-      - ${CONFIG_ROOT}/orderer:/var/hyperledger/production
+      - /Users/vlad/config/orderer:/var/hyperledger/production
     networks:
       - coins
 
@@ -107,7 +107,7 @@ services:
       - /var/run/:/host/var/run/
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/msp:/etc/hyperledger/fabric/msp
       - ./configurations/peerOrganizations/sjfabric.softjourn.if.ua/peers/peer0.sjfabric.softjourn.if.ua/tls:/etc/hyperledger/fabric/tls
-      - ${CONFIG_ROOT}/peer0:/var/hyperledger/production
+      - /Users/vlad/config/peer0:/var/hyperledger/production
     depends_on:
       - orderer.sjfabric.softjourn.if.ua
       - couchdb0.sjfabric.softjourn.if.ua
@@ -136,7 +136,7 @@ services:
     ports:
       - 4000:4000
     volumes:
-      - ${CONFIG_ROOT}/node_client:/app_data
+      - /Users/vlad/config/node_client:/app_data
       - ./configurations:/app_data/crypto
     networks:
       - coins

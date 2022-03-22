@@ -135,11 +135,6 @@ type FoundationView struct {
 	WithdrawalsMap     map[string]Withdrawal `json:"withdrawalsMap"`
 }
 
-type UserBalance struct {
-	UserId  string `json:"userId"`
-	Balance int    `json:"balance"`
-}
-
 type Filter struct {
 	CreatorId string `json:"creatorId"`
 	Status    uint   `json:"status"`
@@ -270,10 +265,10 @@ func (t *FoundationChain) UpdateFoundation(ctx contractapi.TransactionContextInt
 		return errors.New("Foundation doesn't exists")
 	}
 
-	currentUserId, err := getCurrentUserId(stub)
-	if err != nil {
-		return errors.New(err.Error())
-	}
+// 	currentUserId, err := getCurrentUserId(stub)
+// 	if err != nil {
+// 		return errors.New(err.Error())
+// 	}
 
 	if foundation.Status != STATUS_DRAFT {
 		return errors.New("Foundation is not in draft status")
@@ -283,7 +278,7 @@ func (t *FoundationChain) UpdateFoundation(ctx contractapi.TransactionContextInt
 	foundation.CategoryId = request.CategoryId
 	foundation.Description = request.Description
 
-	if request.image {
+	if len(request.Image) > 0 {
 		foundation.Image = request.Image
 	}
 

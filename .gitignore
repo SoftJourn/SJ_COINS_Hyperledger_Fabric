@@ -47,6 +47,7 @@ Thumbs.db
 # Resource folder
 /chaincode/github.com/coins/vendor
 /chaincode/github.com/coins/go.sum
+/chaincode/github.com/foundation/vendor
 /scripts/coins.tar.gz
 /coin-app/node_modules
 /configurations

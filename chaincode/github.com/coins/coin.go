@@ -6,11 +6,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"log"
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type CoinChain struct {
@@ -27,10 +29,10 @@ type UserBalance struct {
 	Balance int    `json:"balance"`
 }
 
-type ExpirableTransaction {
-  Amount    int,
-  TxId      string,
-  CreatedAt int
+type ExpirableTransaction struct {
+  Amount    int
+  TxId      string
+  CreatedAt int64
 }
 
 var currencyName string
@@ -39,6 +41,7 @@ var minterKey = "minter"
 var balancesKey = "balances"
 var expirableBalancesKey = "expirableBalances"
 var expirableTransactionsKey = "expirableTransactions"
+var expirationPeriod = int64(3600)
 var currencyKey = "currency"
 
 var userAccountType = "user_"
@@ -111,10 +114,10 @@ func (t *CoinChain) InitLedger(ctx contractapi.TransactionContextInterface) (str
   }
 
   // Init expirable transaction map.
-	expirableTransactionsMap := t.getMap(ctx, expirableTransactionsKey)
+	expirableTransactionsMap := t.getExpirableTransactionMap(ctx)
   if len(expirableTransactionsMap) == 0 {
-    expirableTransactionsMap = map[string][]ExpirableTransaction{}
-    err = t.saveMap(ctx, expirableTransactionsKey, expirableTransactionsMap)
+    expirableTransactionsMap = map[string][]*ExpirableTransaction{}
+    err = t.saveExpirableTransactionMap(ctx, expirableTransactionsMap)
     if err != nil {
       return currencyName, err
     }
@@ -134,36 +137,28 @@ func (t *CoinChain) Transfer(ctx contractapi.TransactionContextInterface, receiv
 	}
 
 	currentUserId, err := getCurrentUserId(ctx)
-	if (err != nil) {
-		return nil, err
-	}
+	if (err != nil) { return nil, err }
 
 	currentUserAccount, err := ctx.GetStub().CreateCompositeKey(userAccountType, []string{currentUserId})
-	if (err != nil) {
-		return nil, err
-	}
+	if (err != nil) { return nil, err }
 	fmt.Println("CurrentUserAccount: " + currentUserAccount)
 
 	receiverAccount, err := ctx.GetStub().CreateCompositeKey(receiverAccountType, []string{receiver})
-	if (err != nil) {
-		return nil, err
-	}
+	if (err != nil) { return nil, err }
 	fmt.Println("ReceiverAccount: " + receiverAccount)
 
-	balance := t.getBalance(ctx, currentUserAccount)
+	balance, err := t.getBalance(ctx, currentUserAccount)
+	if (err != nil) { return nil, err }
 	if (balance.Balance < amount) {
 		return nil, errors.New("Not enough coins")
 	}
 
 	t.decreaseAccountBalance(ctx, currentUserAccount, amount)
 	if (expirable) {
-		t.addExpirableTransaction(ctx, receiverAccount, "", amount, 0)
+		t.addExpirableTransaction(ctx, receiverAccount, uuid.New().String(), amount, time.Now().Unix())
 	} else {
 		transfers := make([]*TransferRequest, 0)
-		transfer = new(TransferRequest)
-		transfer.UserId = receiverAccount
-		transfer.Amount = amount
-		transfers = append(transfers, transfer)
+		transfers = addTransfer(transfers, receiverAccount, amount)
 
 		err = t.changeBalance(ctx, transfers)
 		if (err != nil) {
@@ -482,7 +477,7 @@ func (t *CoinChain) BalanceOf(ctx contractapi.TransactionContextInterface, accou
 
 	fmt.Println("account " + account)
 
-	return t.getBalance(account)
+	return t.getBalance(ctx, account)
 }
 
 func (t *CoinChain) BatchBalanceOf(ctx contractapi.TransactionContextInterface, emails []string) ([]*UserBalance, error) {
@@ -561,7 +556,7 @@ func getCurrentUserId(ctx contractapi.TransactionContextInterface) (string, erro
 	return userId, err
 }
 
-// Get map.
+// Get arbitrary string to int map.
 func (t *CoinChain) getMap(ctx contractapi.TransactionContextInterface, mapName string) map[string]int {
 
 	fmt.Println("------ getMap called")
@@ -580,6 +575,22 @@ func (t *CoinChain) getMap(ctx contractapi.TransactionContextInterface, mapName 
 	return mapObject
 }
 
+// Get arbitrary string to array of expirable transactions map.
+func (t *CoinChain) getExpirableTransactionMap(ctx contractapi.TransactionContextInterface) map[string][]*ExpirableTransaction {
+
+	fmt.Println("------ getExpirableTransactionMap called")
+
+	mapBytes, err := ctx.GetStub().GetState(expirableTransactionsKey)
+	if err != nil { return nil }
+
+	var mapObject map[string][]*ExpirableTransaction
+	err = json.Unmarshal(mapBytes, &mapObject)
+	if err != nil { return nil }
+
+	return mapObject
+}
+
+// Save arbitrary string to int map.
 func (t *CoinChain) saveMap(ctx contractapi.TransactionContextInterface, mapName string, mapObject map[string]int) error {
 	fmt.Println("------ saveBalancesMap called")
 
@@ -592,6 +603,19 @@ func (t *CoinChain) saveMap(ctx contractapi.TransactionContextInterface, mapName
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// Save arbitrary string to array of expirable transactions map.
+func (t *CoinChain) saveExpirableTransactionMap(ctx contractapi.TransactionContextInterface, mapObject map[string][]*ExpirableTransaction) error {
+	fmt.Println("------ saveExpirableTransactionMap called")
+
+	balancesMapBytes, err := json.Marshal(mapObject)
+	if err != nil { return err }
+
+	err = ctx.GetStub().PutState(expirableTransactionsKey, balancesMapBytes)
+	if err != nil { return err }
 
 	return nil
 }
@@ -625,7 +649,7 @@ func (t *CoinChain) trimCompositeKey(inputStr string) string {
 }
 
 // Get account balance including burning wallet balance.
-func (t *CoinChain) getBalance(ctx contractapi.TransactionContextInterface, account) (*UserBalance, error) {
+func (t *CoinChain) getBalance(ctx contractapi.TransactionContextInterface, account string) (*UserBalance, error) {
   // Permanent balance.
   balancesMap := t.getMap(ctx, balancesKey)
   balancesResponse := new(UserBalance)
@@ -633,7 +657,7 @@ func (t *CoinChain) getBalance(ctx contractapi.TransactionContextInterface, acco
   balancesResponse.Balance = balancesMap[account]
 
   // Expirable balance.
-  flushExpireTransactions(account)
+  t.flushExpiredTransactions(ctx, account)
   expirableBalancesMap := t.getMap(ctx, expirableBalancesKey)
   if (expirableBalancesMap[account] > 0) {
     balancesResponse.Balance = balancesResponse.Balance + expirableBalancesMap[account]
@@ -643,13 +667,12 @@ func (t *CoinChain) getBalance(ctx contractapi.TransactionContextInterface, acco
 }
 
 // Add transaction to burning wallet and update balance map.
-func (t *CoinChain) addExpirableTransaction(ctx contractapi.TransactionContextInterface, account string, txId string, amount int, createdAt int) (error) {
-  expirableTransactionsMap := t.getMap(ctx, expirableTransactionsKey)
-  expirableBalancesMap := t.getMap(ctx, expirableBalancesKey)
+func (t *CoinChain) addExpirableTransaction(ctx contractapi.TransactionContextInterface, account string, txId string, amount int, createdAt int64) (error) {
+  expirableTransactionsMap := t.getExpirableTransactionMap(ctx)
 
   expirableTransactions := expirableTransactionsMap[account]
   if (len(expirableTransactions) == 0) {
-    expirableTransactions = make([]ExpirableTransaction, 0)
+    expirableTransactions = make([]*ExpirableTransaction, 0)
   }
 
   transaction := new(ExpirableTransaction)
@@ -659,24 +682,20 @@ func (t *CoinChain) addExpirableTransaction(ctx contractapi.TransactionContextIn
   expirableTransactions = append(expirableTransactions, transaction)
 
   expirableTransactionsMap[account] = expirableTransactions
-  expirableBalancesMap[account] = expirableBalancesMap[account] + transaction.Amount
+  err := t.saveExpirableTransactionMap(ctx, expirableTransactionsMap)
+  if err != nil { return err }
 
-  err = t.saveMap(ctx, expirableTransactionsKey, expirableTransactionsMap)
-  if err != nil {
-    return err
-  }
-
-  err = t.saveMap(ctx, expirableBalancesKey, expirableBalancesMap)
-  if err != nil {
-    return err
-  }
-
-  return nil
+	transfers := make([]*TransferRequest, 0)
+	transfer := new(TransferRequest)
+	transfer.UserId = account
+	transfer.Amount = transaction.Amount
+	transfers = append(transfers, transfer)
+  return t.changeExpirableBalance(ctx, transfers)
 }
 
 // Burn outdated transactions and update balance map.
 func (t *CoinChain) flushExpiredTransactions(ctx contractapi.TransactionContextInterface, account string) (error) {
-  expirableTransactionsMap := t.getMap(ctx, expirableTransactionsKey)
+  expirableTransactionsMap := t.getExpirableTransactionMap(ctx)
   expirableBalancesMap := t.getMap(ctx, expirableBalancesKey)
 
   expirableTransactions := expirableTransactionsMap[account]
@@ -685,11 +704,12 @@ func (t *CoinChain) flushExpiredTransactions(ctx contractapi.TransactionContextI
   }
 
   indicesToRemove := make([]int, 0)
+	now := time.Now().Unix()
   for i, v := range expirableTransactions {
-		if (v.CreatedAt + shift < now()) {
+		if (v.CreatedAt + expirationPeriod < now) {
 		  expirableBalancesMap[account] = expirableBalancesMap[account] - v.Amount
 		  if (expirableBalancesMap[account] < 0) {
-		    return error.New("Expirable balance of account got negative value")
+		    return errors.New("Expirable balance of account got negative value")
 		  }
 
 		  indicesToRemove = append(indicesToRemove, i)
@@ -704,15 +724,11 @@ func (t *CoinChain) flushExpiredTransactions(ctx contractapi.TransactionContextI
     }
 
     expirableTransactionsMap[account] = expirableTransactions
-    err = t.saveMap(ctx, expirableTransactionsKey, expirableTransactionsMap)
-    if err != nil {
-      return err
-    }
+    err := t.saveExpirableTransactionMap(ctx, expirableTransactionsMap)
+    if err != nil { return err }
 
     err = t.saveMap(ctx, expirableBalancesKey, expirableBalancesMap)
-    if err != nil {
-      return err
-    }
+    if err != nil { return err }
   }
 
   return nil
@@ -720,7 +736,62 @@ func (t *CoinChain) flushExpiredTransactions(ctx contractapi.TransactionContextI
 
 // Decrese account balance starting from oldest expirable transactions down to permanent balance.
 func (t *CoinChain) decreaseAccountBalance(ctx contractapi.TransactionContextInterface, account string, amount int) (*UserBalance, error) {
-	// TODO: Implement.
+	balance, err := t.getBalance(ctx, account)
+	if (err != nil) { return nil, err }
+	if (amount < 1) { return balance, nil }
+	if (balance.Balance < amount) {
+		return nil, errors.New("Balance amount is less than needed")
+	}
+
+	expirableTransactionsMap := t.getExpirableTransactionMap(ctx)
+	expirableTransactions := expirableTransactionsMap[account]
+	if (len(expirableTransactions) > 0) {
+		transactionIdsToRemove := make([]int, 0)
+		decreasedAmount := 0
+
+		for i, v := range expirableTransactions {
+			if (v.Amount < amount) {
+				amount -= v.Amount
+				decreasedAmount += v.Amount
+				transactionIdsToRemove = append(transactionIdsToRemove, i)
+			} else {
+				expirableTransactions[i].Amount = v.Amount - amount
+				decreasedAmount += amount
+				amount = 0
+
+				if (expirableTransactions[i].Amount < 1) {
+					transactionIdsToRemove = append(transactionIdsToRemove, i)
+				}
+			}
+		}
+
+		if (decreasedAmount > 0) {
+			transfers := make([]*TransferRequest, 0)
+			transfer := new(TransferRequest)
+			transfer.UserId = account
+			transfer.Amount = decreasedAmount
+			transfers = append(transfers, transfer)
+
+			err = t.changeExpirableBalance(ctx, transfers)
+			if (err != nil) { return nil, err }
+		}
+
+		for i := len(transactionIdsToRemove)-1; i >= 0; i-- {
+      expirableTransactions = append(expirableTransactions[:i], expirableTransactions[i+1:]...)
+    }
+
+		expirableTransactionsMap[account] = expirableTransactions
+    err = t.saveExpirableTransactionMap(ctx, expirableTransactionsMap)
+    if (err != nil) { return nil, err }
+	}
+
+	if (amount > 0) {
+		transfers := make([]*TransferRequest, 0)
+		transfers = t.addTransfer(transfers, account, -1 * amount)
+		t.changeBalance(ctx, transfers)
+	}
+
+	return t.getBalance(ctx, account)
 }
 
 // Wrapper for permanent balance value change.
@@ -735,9 +806,9 @@ func (t *CoinChain) changeExpirableBalance(ctx contractapi.TransactionContextInt
 
 // Actual logic of balance change.
 func (t *CoinChain) changeBalanceInternal(ctx contractapi.TransactionContextInterface, key string, transfers []*TransferRequest, balanceType string) (error) {
-	balancesMap := t.getMap(ctx, key)
+	balanceMap := t.getMap(ctx, key)
 
-	for (_, transfer := range transfers) {
+	for _, transfer := range transfers {
 		if (balanceMap[transfer.UserId] > 0) {
 			balanceMap[transfer.UserId] = balanceMap[transfer.UserId] + transfer.Amount
 		} else {
@@ -749,7 +820,15 @@ func (t *CoinChain) changeBalanceInternal(ctx contractapi.TransactionContextInte
 		}
 	}
 
-	return t.saveMap(ctx, key, balancesMap)
+	return t.saveMap(ctx, key, balanceMap)
+}
+
+func (t *CoinChain) addTransfer(transfers []*TransferRequest, account string, amount int) ([]*TransferRequest) {
+	transfer := new(TransferRequest)
+	transfer.UserId = account
+	transfer.Amount = amount
+	transfers = append(transfers, transfer)
+	return transfers
 }
 
 func main() {
