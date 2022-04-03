@@ -5,6 +5,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import org.bouncycastle.asn1.x500.RDN;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.style.BCStyle;
+import org.bouncycastle.asn1.x500.style.IETFUtils;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.hyperledger.fabric.contract.Context;
 import org.hyperledger.fabric.shim.ChaincodeException;
 
@@ -22,16 +27,16 @@ public class IdentityHelper {
     }
 
     String payload = creatorCert.substring(startIndex);
-    X509Certificate cert = null;
     try {
-      cert = (X509Certificate) CertificateFactory.getInstance("X.509")
-          .generateCertificate(new ByteArrayInputStream(payload.getBytes()));
+      X500Name x500name = new JcaX509CertificateHolder(
+          (X509Certificate) CertificateFactory.getInstance("X.509")
+              .generateCertificate(new ByteArrayInputStream(payload.getBytes()))).getSubject();
+      RDN cn = x500name.getRDNs(BCStyle.CN)[0];
 
+      return IETFUtils.valueToString(cn.getFirst().getValue());
     } catch (CertificateException e) {
-      throw new ChaincodeException(e.getMessage());
+      throw new ChaincodeException(e);
     }
-
-    return cert.getSubjectDN().getName();
   }
 
   public String getUserAccount(final Context ctx, String accountType, String userId) {

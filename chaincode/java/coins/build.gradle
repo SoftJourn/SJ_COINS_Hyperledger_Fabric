@@ -1,9 +1,11 @@
 plugins {
     id 'application'
+    id 'com.github.johnrengelman.shadow' version '4.0.3'
 }
 
 group 'ua.if.softjourn'
 version '1.0'
+mainClassName = 'org.hyperledger.fabric.contract.ContractRouter'
 
 repositories {
     mavenCentral()
@@ -15,10 +17,12 @@ repositories {
 dependencies {
     implementation 'org.hyperledger.fabric-chaincode-java:fabric-chaincode-shim:2.4.1'
     implementation 'com.owlike:genson:1.6'
+    implementation 'org.slf4j:slf4j-log4j12:1.7.36'
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
 
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile 'junit:junit:4.12'
 }
 
-application {
-    mainClass = 'org.hyperledger.fabric.contract.ContractRouter'
+shadowJar{
+    archiveFileName = "chaincode.${extension}"
 }
