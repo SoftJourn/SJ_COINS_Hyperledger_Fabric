@@ -52,6 +52,14 @@ public class SmartContract implements ContractInterface {
   private ContextHelper contextHelper = null;
   private ObjectConverter objectConverter = null;
 
+  public SmartContract() {
+  }
+
+  public SmartContract(ContextHelper contextHelper, IdentityHelper identityHelper) {
+    this.contextHelper = contextHelper;
+    this.identityHelper = identityHelper;
+  }
+
   /**
    * Init ledger with some start values.
    *
@@ -120,7 +128,8 @@ public class SmartContract implements ContractInterface {
     String minterId = contextHelper.getState(ctx, MINTER_KEY, String.class);
     logger.info("Minter id: " + minterId);
 
-    String currentUserId = getIdentityHelper().getCurrentUserId(ctx);
+    IdentityHelper identityHelper = getIdentityHelper();
+    String currentUserId = identityHelper.getCurrentUserId(ctx);
     if (!currentUserId.equals(minterId)) {
       throw new ChaincodeException("Permission is denied for this operation");
     }

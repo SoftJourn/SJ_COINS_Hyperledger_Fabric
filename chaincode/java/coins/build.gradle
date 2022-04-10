@@ -20,9 +20,15 @@ dependencies {
     implementation 'org.slf4j:slf4j-log4j12:1.7.36'
     implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
 
-    testCompile 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
+    testImplementation 'org.mockito:mockito-all:1.10.19'
 }
 
 shadowJar{
     archiveFileName = "chaincode.${extension}"
+}
+
+test {
+    useJUnitPlatform()
 }
