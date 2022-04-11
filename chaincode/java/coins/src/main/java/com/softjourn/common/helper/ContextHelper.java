@@ -1,9 +1,11 @@
 package com.softjourn.common.helper;
 
 import java.lang.reflect.InvocationTargetException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.hyperledger.fabric.contract.Context;
 import org.hyperledger.fabric.shim.ChaincodeException;
 
@@ -73,5 +75,23 @@ public class ContextHelper {
     }
 
     return (T) converter.deserialize(content, clazz);
+  }
+
+  /**
+   * Get next unique id.
+   *
+   * @return New id.
+   */
+  public String getNextId() {
+    return UUID.randomUUID().toString();
+  }
+
+  /**
+   * Get current timestamp.
+   *
+   * @return Current timestamp.
+   */
+  public long getCurrentTimestamp() {
+    return Instant.now().getEpochSecond();
   }
 }

@@ -182,6 +182,7 @@ public class SmartContract implements ContractInterface {
     logger.info("ReceiverAccount: " + receiverAccount);
 
     flushExpiredTransactions(ctx, currentUserAccount);
+    flushExpiredTransactions(ctx, receiverAccount);
     UserBalance userBalance = getBalance(ctx, currentUserAccount, currentUserId);
     if (userBalance.getBalance() < amount) {
       throw new ChaincodeException("Not enough coins");
@@ -190,8 +191,8 @@ public class SmartContract implements ContractInterface {
     decreaseAccountBalance(ctx, currentUserAccount, amount);
     if (expirable) {
       addExpirableTransaction(
-          ctx, receiverAccount, UUID.randomUUID().toString(),
-          amount, Instant.now().getEpochSecond());
+          ctx, receiverAccount, contextHelper.getNextId(),
+          amount, contextHelper.getCurrentTimestamp());
     } else {
       changeBalance(ctx, receiverAccount, amount);
     }
@@ -240,7 +241,7 @@ public class SmartContract implements ContractInterface {
     decreaseAccountBalance(ctx, fromAccount, amount);
     if (expirable) {
       addExpirableTransaction(
-          ctx, toAccount, UUID.randomUUID().toString(), amount, Instant.now().getEpochSecond());
+          ctx, toAccount, contextHelper.getNextId(), amount, contextHelper.getCurrentTimestamp());
     } else {
       changeBalance(ctx, toAccount, amount);
     }
@@ -299,8 +300,8 @@ public class SmartContract implements ContractInterface {
 
       if (expirable) {
         addExpirableTransaction(
-            ctx, receiverAccount, UUID.randomUUID().toString(),
-            (long) request.get(TransferRequest.AMOUNT_KEY), Instant.now().getEpochSecond());
+            ctx, receiverAccount, contextHelper.getNextId(),
+            (long) request.get(TransferRequest.AMOUNT_KEY), contextHelper.getCurrentTimestamp());
       } else {
         changeBalance(ctx, receiverAccount, (long) request.get(TransferRequest.AMOUNT_KEY));
       }
@@ -566,7 +567,7 @@ public class SmartContract implements ContractInterface {
     Predicate<Map<String, ?>> predicate = getExpirableTransactionPredicate();
     boolean mutated = false;
     while (iterator.hasNext()) {
-      if (predicate.test(iterator.next())) {
+      if (!predicate.test(iterator.next())) {
         iterator.remove();
         mutated = true;
       }
@@ -622,6 +623,10 @@ public class SmartContract implements ContractInterface {
         }
       }
 
+      if (exTrMap.get(account).isEmpty()) {
+        exTrMap.remove(account);
+      }
+
       contextHelper.writeMap(ctx, EXPIRABLE_TRANSACTION_MAP_KEY, exTrMap);
     }
 
@@ -658,7 +663,7 @@ public class SmartContract implements ContractInterface {
    * @return Predicate for checking transaction expiration.
    */
   private Predicate<Map<String, ?>> getExpirableTransactionPredicate() {
-    long threshold = Instant.now().getEpochSecond() - TX_EXPIRATION_PERIOD;
+    long threshold = getContextHelper().getCurrentTimestamp() - TX_EXPIRATION_PERIOD;
     return t -> ((Long) t.get(ExpirableTransaction.CREATED_AT_KEY)) > threshold;
   }
 }
