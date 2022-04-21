@@ -448,4 +448,315 @@ public class SmartContractTest {
     Assertions.assertEquals(
         expectedExpTrMap, contextHelper.getState(context,"expirable_transactions", Map.class));
   }
+
+
+  // TransferFrom method.
+  public static Stream<Object[]> transferFrom_correctParameters_success() {
+    return Stream.of(
+        new Object[]{
+            "user_", "receiver", 100L, false,
+            "sj_coin", 0L,
+            new HashMap<>() {{ put("user_sj_coin", 100L); }},
+            new HashMap<>() {{
+              put("user_sj_coin", 0L);
+              put("user_receiver", 100L);
+            }},
+            new HashMap<>(),
+            new HashMap<>()
+        },
+        new Object[]{
+            "user_", "receiver", 120L, false,
+            "sj_coin", 80L,
+            new HashMap<>() {{
+              put("user_sj_coin", 200L);
+              put("user_unknown", 10L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 80L);
+              put("user_unknown", 10L);
+              put("user_receiver", 120L);
+            }},
+            new HashMap<>(),
+            new HashMap<>()
+        },
+        new Object[]{
+            "user_", "receiver", 120L, false,
+            "sj_coin", 80L,
+            new HashMap<>() {{
+              put("user_sj_coin", 200L);
+              put("user_unknown", 10L);
+              put("user_receiver", 62L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 80L);
+              put("user_unknown", 10L);
+              put("user_receiver", 182L);
+            }},
+            new HashMap<>(),
+            new HashMap<>()
+        },
+        new Object[]{
+            "user_", "receiver", 10L, false,
+            "sj_coin", 178L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_unknown", 10L);
+              put("user_receiver", 62L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_unknown", 10L);
+              put("user_receiver", 72L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 88L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 78L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+            }}
+        },
+        new Object[]{
+            "user_", "receiver", 10L, false,
+            "sj_coin", 95L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 95L);
+              put("user_receiver", 210L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 5L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+            }},
+            new HashMap<>()
+        },
+        new Object[]{
+            "user_", "receiver", 10L, true,
+            "sj_coin", 90L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 90L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>(),
+            new HashMap<>() {{
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 10L);
+                  put("createdAt", 13600L);
+                }});
+              }});
+            }}
+        },
+        new Object[]{
+            "user_", "receiver", 10L, true,
+            "sj_coin", 90L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 90L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+            }},
+            new HashMap<>() {{
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 10L);
+                  put("createdAt", 13600L);
+                }});
+              }});
+            }}
+        },
+        new Object[]{
+            "user_", "receiver", 10L, true,
+            "sj_coin", 91L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 91L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+            }},
+            new HashMap<>() {{
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 10L);
+                  put("createdAt", 13600L);
+                }});
+              }});
+            }}
+        },
+        new Object[]{
+            "user_", "receiver", 10L, true,
+            "sj_coin", 90L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 90L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 1000L);
+                }});
+              }});
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+              }});
+            }},
+            new HashMap<>() {{
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 13500L);
+                }});
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 10L);
+                  put("createdAt", 13600L);
+                }});
+              }});
+            }}
+        },
+        new Object[]{
+            "user_", "receiver", 10L, true,
+            "sj_coin", 90L,
+            new HashMap<>() {{
+              put("user_sj_coin", 100L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", 90L);
+              put("user_receiver", 200L);
+            }},
+            new HashMap<>() {{
+              put("user_sj_coin", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 1000L);
+                }});
+              }});
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "0");
+                  put("amount", 1L);
+                  put("createdAt", 1000L);
+                }});
+              }});
+            }},
+            new HashMap<>() {{
+              put("user_receiver", new LinkedList<>() {{
+                add(new HashMap<>() {{
+                  put("id", "1");
+                  put("amount", 10L);
+                  put("createdAt", 13600L);
+                }});
+              }});
+            }}
+        }
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void transferFrom_correctParameters_success(
+      String receiverAccountType, String receiver, long amount, boolean expirable,
+      String senderId, long rest,
+      Map<String, Long> balanceMap, Map<String, Long> expectedBalanceMap,
+      Map<String, List<Map<String, Object>>> expTrMap,
+      Map<String, List<Map<String, Object>>> expectedExpTrMap
+  ) {
+    ContextHelperImpl contextHelper = new ContextHelperImpl();
+    contextHelper.putState("balances", balanceMap);
+    contextHelper.putState("expirable_transactions", expTrMap);
+    contextHelper.setNextId("1");
+    contextHelper.setCurrentTimestamp(13600L);
+    target = new SmartContract(contextHelper, identityHelper);
+
+    Mockito.when(identityHelper.getCurrentUserId(context)).thenReturn(senderId);
+    Mockito.when(identityHelper
+        .getUserAccount(Matchers.eq(context), Matchers.anyString(), Matchers.anyString()))
+        .then(i -> i.getArgumentAt(1, String.class) + i.getArgumentAt(2, String.class));
+
+    UserBalance result = target.transfer(context, receiverAccountType, receiver, amount, expirable);
+
+    Assertions.assertEquals(new UserBalance(senderId, rest), result);
+    Assertions.assertEquals(
+        expectedBalanceMap, contextHelper.getState(context,"balances", Map.class));
+    Assertions.assertEquals(
+        expectedExpTrMap, contextHelper.getState(context,"expirable_transactions", Map.class));
+  }
 }

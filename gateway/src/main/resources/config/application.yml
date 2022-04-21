@@ -1,0 +1,28 @@
+server:
+  port: ${GATEWAY_SERVER_PORT:4000}
+
+spring:
+  application:
+    name: Gateway
+  profiles:
+    active: dev
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret-key: "EcEATUqDpEcc.EcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEcc"
+          expiration: 36000
+
+application:
+  ca-name: 'ca.sjfabric.softjourn.if.ua'
+  key-value-store: '/app_data/wallet'
+  admin-username: 'admin'
+  admin-password: 'adminpw'
+  msp-id: 'CoinsMSP'
+  supported-chaincodes: coins
+  default-chaincode: coins
+  certificate-authorities:
+    "[ca.sjfabric.softjourn.if.ua]":
+      url: 'https://ca.sjfabric.softjourn.if.ua:7054'
+      tls-cA-certs:
+        - "/app_data/crypto/peerOrganizations/sjfabric.softjourn.if.ua/ca/ca.sjfabric.softjourn.if.ua-cert.pem"

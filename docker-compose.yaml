@@ -141,3 +141,18 @@ services:
       - ./configurations:/app_data/crypto
     networks:
       - coins
+
+  gateway.sjfabric.softjourn.if.ua:
+    container_name: gateway.sjfabric.softjourn.if.ua
+    hostname: gateway.sjfabric.softjourn.if.ua
+    build: gateway
+    image: gateway
+    environment:
+      - HFC_LOGGING={"info":"console"}
+    ports:
+      - 4000:4000
+    volumes:
+      - /Users/vlad/config/node_client:/app_data
+      - ./configurations:/app_data/crypto
+    networks:
+      - coins

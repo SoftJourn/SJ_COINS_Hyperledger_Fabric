@@ -214,7 +214,7 @@ app.post('/invoke/:chaincode', async function (req, res) {
     const fcn = req.body.fcn;
     const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
 
-    logger.debug(`Invoke function: ${fcn} with arguments: ${args}`);
+    logger.debug(`Invoke function: ${fcn} with arguments (isObject: ${isObject}): ${args}`);
 
     if (!chaincode) {
       res.statusCode = 400;
@@ -243,7 +243,7 @@ app.post('/invoke', async function (req, res) {
     const fcn = req.body.fcn;
     const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
 
-    logger.debug(`Invoke function: ${fcn} with arguments: ${args}`);
+    logger.debug(`Invoke function: ${fcn} with arguments (isObject: ${isObject}): ${args}`);
 
     if (!fcn) {
         res.statusCode = 400;
@@ -268,7 +268,7 @@ app.post('/query/:chaincode', async function (req, res) {
     const fcn = req.body.fcn;
     const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
 
-    logger.debug(`Query function: ${fcn} with arguments: ${args}`);
+    logger.debug(`Query function: ${fcn} with arguments (isObject: ${isObject}): ${args}`);
 
     if (!chaincode) {
       res.statusCode = 400;
@@ -297,7 +297,7 @@ app.post('/query', async function (req, res) {
     const fcn = req.body.fcn;
     const args = isObject ? JSON.stringify(req.body.args) : req.body.args;
 
-    logger.debug(`Query function: ${fcn} with arguments: ${args}`);
+    logger.debug(`Query function: ${fcn} with arguments (isObject: ${isObject}): ${args}`);
 
     if (!fcn) {
         res.statusCode = 400;

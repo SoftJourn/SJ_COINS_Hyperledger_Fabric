@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 import org.hyperledger.fabric.Logger;
 import org.hyperledger.fabric.contract.Context;
 import org.hyperledger.fabric.contract.ContractInterface;
+import org.hyperledger.fabric.contract.ContractRouter;
 import org.hyperledger.fabric.contract.annotation.Contact;
 import org.hyperledger.fabric.contract.annotation.Contract;
 import org.hyperledger.fabric.contract.annotation.Default;
@@ -22,6 +23,7 @@ import org.hyperledger.fabric.contract.annotation.Info;
 import org.hyperledger.fabric.contract.annotation.License;
 import org.hyperledger.fabric.contract.annotation.Transaction;
 import org.hyperledger.fabric.contract.annotation.Transaction.TYPE;
+import org.hyperledger.fabric.contract.execution.JSONTransactionSerializer;
 import org.hyperledger.fabric.shim.ChaincodeException;
 import org.hyperledger.fabric.shim.ChaincodeStub;
 
@@ -197,7 +199,7 @@ public class SmartContract implements ContractInterface {
       changeBalance(ctx, receiverAccount, amount);
     }
 
-    // Do not invoke BalanceOf method. At this time ledger is not updated yet.
+    // Ledger state is cached via context helper, so reading balance is completely appropriate.
     return getBalance(ctx, currentUserAccount, currentUserId);
   }
 
@@ -443,6 +445,8 @@ public class SmartContract implements ContractInterface {
   @Transaction(intent = TYPE.EVALUATE)
   public UserBalance[] batchBalanceOf(final Context ctx, final String[] emails) {
     logger.info("UserIds: " + String.join(", ", emails));
+//    JSONTransactionSerializer
+    ContractRouter
 
     IdentityHelper identityHelper = getIdentityHelper();
     return Stream.of(emails)
