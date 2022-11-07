@@ -1,21 +1,22 @@
 package com.softjourn.coins;
 
-import com.softjourn.coins.dto.*;
-import com.softjourn.common.helper.*;
-import java.time.Instant;
+import com.softjourn.coins.dto.ExpirableTransaction;
+import com.softjourn.coins.dto.TransferRequest;
+import com.softjourn.coins.dto.UserBalance;
+import com.softjourn.common.helper.ContextHelper;
+import com.softjourn.common.helper.IdentityHelper;
+import com.softjourn.common.helper.ObjectConverter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.hyperledger.fabric.Logger;
 import org.hyperledger.fabric.contract.Context;
 import org.hyperledger.fabric.contract.ContractInterface;
-import org.hyperledger.fabric.contract.ContractRouter;
 import org.hyperledger.fabric.contract.annotation.Contact;
 import org.hyperledger.fabric.contract.annotation.Contract;
 import org.hyperledger.fabric.contract.annotation.Default;
@@ -23,7 +24,6 @@ import org.hyperledger.fabric.contract.annotation.Info;
 import org.hyperledger.fabric.contract.annotation.License;
 import org.hyperledger.fabric.contract.annotation.Transaction;
 import org.hyperledger.fabric.contract.annotation.Transaction.TYPE;
-import org.hyperledger.fabric.contract.execution.JSONTransactionSerializer;
 import org.hyperledger.fabric.shim.ChaincodeException;
 import org.hyperledger.fabric.shim.ChaincodeStub;
 
@@ -203,6 +203,7 @@ public class SmartContract implements ContractInterface {
     return getBalance(ctx, currentUserAccount, currentUserId);
   }
 
+  // TODO: This method doesn't contain access rule check.
   /**
    * Transfer from account.
    *
@@ -446,7 +447,7 @@ public class SmartContract implements ContractInterface {
   public UserBalance[] batchBalanceOf(final Context ctx, final String[] emails) {
     logger.info("UserIds: " + String.join(", ", emails));
 //    JSONTransactionSerializer
-    ContractRouter
+//    ContractRouter
 
     IdentityHelper identityHelper = getIdentityHelper();
     return Stream.of(emails)
