@@ -260,12 +260,12 @@ public class SmartContract implements ContractInterface {
    * @return Current user balance.
    */
   @Transaction
-  public UserBalance batchTransfer(final Context ctx, final String transferRequestsJson) {
+  public UserBalance batchTransfer(
+      final Context ctx, final String transferRequestsJson) {
     logger.info("Transfer requests json: " + transferRequestsJson);
 
     ObjectConverter objectConverter = getObjectConverter();
-    List<?> args = objectConverter
-        .deserialize(transferRequestsJson, List.class);
+    List<?> args = objectConverter.deserialize(transferRequestsJson, List.class);
 
     if (args.size() != 2) {
       throw new ChaincodeException("Wrong amount of arguments");
@@ -299,7 +299,7 @@ public class SmartContract implements ContractInterface {
 
     for (Map<String, Object> request : transferRequests) {
       String receiverAccount = identityHelper.getUserAccount(
-          ctx, USER_ACCOUNT_TYPE, (String) request.get(TransferRequest.USER_ID_KEY));
+          ctx, USER_ACCOUNT_TYPE, String.valueOf(request.get(TransferRequest.USER_ID_KEY)));
 
       if (expirable) {
         addExpirableTransaction(
@@ -313,6 +313,7 @@ public class SmartContract implements ContractInterface {
     return getBalance(ctx, currentUserAccount, currentUserId);
   }
 
+  // TODO: Investigate if this method is needed and add tests.
   /**
    * Make refund.
    *
@@ -440,17 +441,15 @@ public class SmartContract implements ContractInterface {
    * Get balance of batch of accounts.
    *
    * @param ctx CC context.
-   * @param emails Email list.
+   * @param ids User id list.
    * @return Array of balances.
    */
   @Transaction(intent = TYPE.EVALUATE)
-  public UserBalance[] batchBalanceOf(final Context ctx, final String[] emails) {
-    logger.info("UserIds: " + String.join(", ", emails));
-//    JSONTransactionSerializer
-//    ContractRouter
+  public UserBalance[] batchBalanceOf(final Context ctx, final String[] ids) {
+    logger.info("UserIds: " + String.join(", ", ids));
 
     IdentityHelper identityHelper = getIdentityHelper();
-    return Stream.of(emails)
+    return Stream.of(ids)
         .map(id -> getBalance(ctx, identityHelper.getUserAccount(ctx, USER_ACCOUNT_TYPE, id), id))
         .toArray(UserBalance[]::new);
   }

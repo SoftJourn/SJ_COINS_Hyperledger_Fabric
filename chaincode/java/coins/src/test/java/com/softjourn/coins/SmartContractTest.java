@@ -1,13 +1,17 @@
 package com.softjourn.coins;
 
+import com.softjourn.coins.dto.TransferRequest;
 import com.softjourn.coins.dto.UserBalance;
 import com.softjourn.common.helper.ContextHelper;
 import com.softjourn.common.helper.IdentityHelper;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.hyperledger.fabric.contract.Context;
 import org.hyperledger.fabric.shim.ChaincodeException;
@@ -510,5 +514,141 @@ public class SmartContractTest {
         expectedBalanceMap, contextHelper.getState(context,"balances", Map.class));
     Assertions.assertEquals(
         expectedExpirableTransactionsMap, contextHelper.getState(context,"expirable_transactions", Map.class));
+  }
+
+
+  // BatchTransfer method.
+  public static Stream<Object[]> batchTransfer_correctParameters_success() {
+    return Stream.of(
+        new Object[]{
+            "[["
+                + "{\"" + TransferRequest.USER_ID_KEY + "\":\"r1\", \"" + TransferRequest.AMOUNT_KEY + "\": 23}"
+                + ",{\"" + TransferRequest.USER_ID_KEY + "\":\"r2\", \"" + TransferRequest.AMOUNT_KEY + "\": 23}"
+                + "], false]",
+            Collections.emptyList(), "donor", 188L,
+
+            new HashMap<>() {{ put("user_donor", 234L); put("user_r1", 10L); put("user_r2", 20L); }},
+            new HashMap<>(),
+            new HashMap<>() {{ put("user_donor", 188L); put("user_r1", 33L); put("user_r2", 43L); }},
+            new HashMap<>()
+        },
+        new Object[]{
+            "[["
+                + "{\"" + TransferRequest.USER_ID_KEY + "\":\"r1\", \"" + TransferRequest.AMOUNT_KEY + "\": 23}"
+                + ",{\"" + TransferRequest.USER_ID_KEY + "\":\"r2\", \"" + TransferRequest.AMOUNT_KEY + "\": 23}"
+                + "], true]",
+            List.of("1", "2"), "donor", 188L,
+
+            new HashMap<>() {{ put("user_donor", 234L); put("user_r1", 10L); put("user_r2", 20L); }},
+            new HashMap<>(),
+            new HashMap<>() {{ put("user_donor", 188L); put("user_r1", 10L); put("user_r2", 20L); }},
+            new HashMap<>() {{
+              put("user_r1", List.of(new HashMap<>() {{
+                put("id", 1);
+                put("amount", 23L);
+                put("createdAt", 13600L);
+              }}));
+              put("user_r2", List.of(new HashMap<>() {{
+                put("id", 2);
+                put("amount", 23L);
+                put("createdAt", 13600L);
+              }}));
+            }}
+        }
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void batchTransfer_correctParameters_success(
+      String transferRequestsString,
+      Collection<String> nextIds,
+
+      String donor, long left,
+      Map<String, Long> initialBalanceMap,
+      Map<String, List<Map<String, Object>>> initialExpirableTransactionsMap,
+      Map<String, Long> expectedBalanceMap,
+      Map<String, List<Map<String, Object>>> expectedExpirableTransactionsMap
+  ) {
+    SmartContract contract = prepareContext(context -> context
+        .putState("balances", initialBalanceMap)
+        .putState("expirable_transactions", initialExpirableTransactionsMap)
+        .setNextId(nextIds)
+        .setCurrentTimestamp(13600L));
+    Mockito.when(identityHelper.getCurrentUserId(context)).thenReturn(donor);
+
+    UserBalance result = contract.batchTransfer(context, transferRequestsString);
+
+    Assertions.assertEquals(new UserBalance(donor, left), result);
+    Assertions.assertEquals(
+        expectedBalanceMap, contextHelper.getState(context,"balances", Map.class));
+    Assertions.assertEquals(
+        expectedExpirableTransactionsMap.toString(), contextHelper.getState(context,"expirable_transactions", Map.class).toString());
+  }
+
+
+  // BatchBalanceOf method.
+  public static Stream<Object[]> batchBalanceOf_correctParameters_success() {
+    return Stream.of(
+        new Object[]{
+            new String[]{"r1", "r2"},
+
+            new UserBalance[]{
+                new UserBalance("r1", 10L),
+                new UserBalance("r2", 20L)
+            },
+            new HashMap<>() {{ put("user_r1", 10L); put("user_r2", 20L); }},
+            new HashMap<>()
+        },
+        new Object[]{
+            new String[]{"r1", "r2"},
+
+            new UserBalance[]{
+                new UserBalance("r1", 18L),
+                new UserBalance("r2", 29L)
+            },
+            new HashMap<>() {{ put("user_r1", 10L); put("user_r2", 20L); }},
+            new HashMap<>() {{
+              put("user_r1", List.of(new HashMap<>() {{
+                put("id", 1);
+                put("amount", 8L);
+                put("createdAt", 13600L);
+              }}));
+              put("user_r2", List.of(new HashMap<>() {{
+                put("id", 2);
+                put("amount", 9L);
+                put("createdAt", 13600L);
+              }}));
+            }}
+        }
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void batchBalanceOf_correctParameters_success(
+      String[] idArray, UserBalance[] expectedBalanceArray,
+      Map<String, Long> initialBalanceMap,
+      Map<String, List<Map<String, Object>>> initialExpirableTransactionsMap
+  ) {
+    SmartContract contract = prepareContext(context -> context
+        .putState("balances", initialBalanceMap)
+        .putState("expirable_transactions", initialExpirableTransactionsMap)
+        .setCurrentTimestamp(13600L));
+
+    UserBalance[] result = contract.batchBalanceOf(context, idArray);
+
+    Assertions.assertEquals(List.of(expectedBalanceArray).toString(), List.of(result).toString());
+  }
+
+  private SmartContract prepareContext(Consumer<? super ContextHelperImpl> consumer) {
+    Mockito.when(identityHelper
+            .getUserAccount(Matchers.eq(context), Matchers.anyString(), Matchers.anyString()))
+        .then(i -> i.getArgumentAt(1, String.class) + i.getArgumentAt(2, String.class));
+
+    ContextHelperImpl contextHelperImpl = new ContextHelperImpl();
+    consumer.accept(contextHelperImpl);
+    contextHelper = contextHelperImpl;
+    return new SmartContract(contextHelper, identityHelper);
   }
 }

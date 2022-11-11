@@ -1,14 +1,19 @@
 package com.softjourn.coins;
 
-import com.softjourn.common.helper.*;
+import com.softjourn.common.helper.ContextHelper;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import org.hyperledger.fabric.contract.Context;
 
 public class ContextHelperImpl extends ContextHelper {
 
   private final Map<String, Object> writeStateCache = new HashMap<>();
-  private String id;
+  private final List<String> nextIds = new ArrayList<>();
+
   private Long timestamp;
 
   @Override
@@ -31,6 +36,13 @@ public class ContextHelperImpl extends ContextHelper {
 
   @Override
   public String getNextId() {
+    Iterator<String> iterator = nextIds.iterator();
+    if (!iterator.hasNext()) {
+      throw new IllegalStateException("Next id list is empty");
+    }
+
+    String id = iterator.next();
+    iterator.remove();
     return id;
   }
 
@@ -39,15 +51,23 @@ public class ContextHelperImpl extends ContextHelper {
     return timestamp;
   }
 
-  public void putState(String key, Object value) {
+  public ContextHelperImpl putState(String key, Object value) {
     writeStateCache.put(key, value);
+    return this;
   }
 
-  public void setNextId(String id) {
-    this.id = id;
+  public ContextHelperImpl setNextId(String id) {
+    nextIds.add(id);
+    return this;
   }
 
-  public void setCurrentTimestamp(Long timestamp) {
+  public ContextHelperImpl setNextId(Collection<String> ids) {
+    nextIds.addAll(ids);
+    return this;
+  }
+
+  public ContextHelperImpl setCurrentTimestamp(Long timestamp) {
     this.timestamp = timestamp;
+    return this;
   }
 }
