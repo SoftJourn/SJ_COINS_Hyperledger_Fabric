@@ -30,7 +30,7 @@ services:
     volumes:
       - "${GENERATED_CONFIG_PATH}/peerOrganizations/${MAIN_DOMAIN}/ca/:/etc/hyperledger/fabric-ca-server-config"
       - "${BLOCKCHAIN_CONFIG_PATH}/fabric-ca-server-config.yaml:/etc/hyperledger/fabric-ca-server-config/fabric-ca-server-config.yaml"
-      - "${CONFIG_ROOT}/ca:/app_data"
+      - "${RUNTIME_ROOT}/ca:/app_data"
     networks:
       - "${NETWORK}"
 
@@ -58,7 +58,7 @@ services:
       - "${GENERATED_CONFIG_PATH}/system-genesis-block/genesis.block:/etc/hyperledger/configtx/genesis.block"
       - "${GENERATED_CONFIG_PATH}/ordererOrganizations/${MAIN_DOMAIN}/orderers/orderer.${MAIN_DOMAIN}/msp:/var/hyperledger/orderer/msp"
       - "${GENERATED_CONFIG_PATH}/ordererOrganizations/${MAIN_DOMAIN}/orderers/orderer.${MAIN_DOMAIN}/tls:/var/hyperledger/orderer/tls"
-      - "${CONFIG_ROOT}/orderer:/var/hyperledger/production"
+      - "${RUNTIME_ROOT}/orderer:/var/hyperledger/production"
     networks:
       - "${NETWORK}"
 
@@ -106,7 +106,7 @@ services:
       - /var/run/:/host/var/run/
       - "${GENERATED_CONFIG_PATH}/peerOrganizations/${MAIN_DOMAIN}/peers/peer0.${MAIN_DOMAIN}/msp:/etc/hyperledger/fabric/msp"
       - "${GENERATED_CONFIG_PATH}/peerOrganizations/${MAIN_DOMAIN}/peers/peer0.${MAIN_DOMAIN}/tls:/etc/hyperledger/fabric/tls"
-      - "${CONFIG_ROOT}/peer0:/var/hyperledger/production"
+      - "${RUNTIME_ROOT}/peer0:/var/hyperledger/production"
     depends_on:
       - "orderer.${MAIN_DOMAIN}"
       - "couchdb0.${MAIN_DOMAIN}"
@@ -134,7 +134,7 @@ services:
     ports:
       - "${PORT_GATEWAY}:${PORT_GATEWAY}"
     volumes:
-      - "${CONFIG_ROOT}/node_client:/app_data"
+      - "${RUNTIME_ROOT}/node_client:/app_data"
       - "${GENERATED_CONFIG_PATH}:/app_data/crypto"
     networks:
       - "${NETWORK}"
