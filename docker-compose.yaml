@@ -13,7 +13,7 @@ services:
   ca.sjfabric.softjourn.if.ua:
     restart: on-failure
     container_name: "ca.${MAIN_DOMAIN}"
-    image: hyperledger/fabric-ca:latest
+    image: hyperledger/fabric-ca:${HYPERLEDGER_CA_VERSION}
     environment:
       - FABRIC_CA_SERVER_DEBUG=false
       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
@@ -37,7 +37,7 @@ services:
   orderer.sjfabric.softjourn.if.ua:
     restart: on-failure
     container_name: "orderer.${MAIN_DOMAIN}"
-    image: hyperledger/fabric-orderer:latest
+    image: hyperledger/fabric-orderer:${HYPERLEDGER_VERSION}
     environment:
       - FABRIC_LOGGING_SPEC=INFO
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
@@ -64,7 +64,7 @@ services:
 
   peer0.sjfabric.softjourn.if.ua:
     container_name: "peer0.${MAIN_DOMAIN}"
-    image: hyperledger/fabric-peer:latest
+    image: hyperledger/fabric-peer:${HYPERLEDGER_VERSION}
     environment:
       - "CORE_PEER_ID=peer0.${MAIN_DOMAIN}"
       - CORE_PEER_LOCALMSPID=CoinsMSP
@@ -124,6 +124,17 @@ services:
     networks:
       - "${NETWORK}"
 
+  couchdb.initializer:
+    image: curlimages/curl:7.86.0
+    deploy:
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - couchdb0.sjfabric.softjourn.if.ua
+    command: [ "sh","-c","sleep 15 && echo '[Initializer] Try to create _users database.' && curl -X PUT -u ${COUCHDB_USER}:${COUCHDB_PASSWORD} couchdb0.sjfabric.softjourn.if.ua:${PORT_COUCH_DB}/_users" ]
+    networks:
+      - "${NETWORK}"
+
   gateway.sjfabric.softjourn.if.ua:
     container_name: "gateway.${MAIN_DOMAIN}"
     hostname: "gateway.${MAIN_DOMAIN}"
@@ -131,6 +142,17 @@ services:
     image: gateway
     environment:
       - HFC_LOGGING={"info":"console"}
+      - GATEWAY_KEY_VALUE_STORE=${GATEWAY_KEY_VALUE_STORE}
+      - GATEWAY_ADMIN_USERNAME=${CA_USER}
+      - GATEWAY_ADMIN_PASSWORD=${CA_PASSWORD}
+      - GATEWAY_MSP_ID=${MSP_ID}
+      - GATEWAY_SUPPORTED_CHAINCODES=${CHAINCODE}
+      - GATEWAY_DEFAULT_CHAINCODE=${CHAINCODE}
+      - GATEWAY_CA_NAME=${GATEWAY_CA_NAME}
+      - GATEWAY_CA_URL=${GATEWAY_CA_NAME}
+      - GATEWAY_CA_PORT=${PORT_CA}
+      - GATEWAY_CRYPTO_PATH=${GATEWAY_CRYPTO_PATH}
+      - GATEWAY_CA_CERT_PATH=${GATEWAY_CA_CERT_PATH}
     ports:
       - "${PORT_GATEWAY}:${PORT_GATEWAY}"
     volumes:

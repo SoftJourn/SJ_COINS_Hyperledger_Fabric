@@ -22,7 +22,7 @@ This repo includes:
  * Run `docker-compose up` to start network.
  * Change working directory to 'scripts' (perhaps in new terminal session) - `cd scripts`.
  * Run `./createChannel.sh` to create new channel called "mychannel".
- * Run `./deployCC.sh` to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account.
+ * Run `./deployCoinsCC.sh` to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account.
  
 ### Stop network
  * Press **Ctrl + C** to stop running network containers.
