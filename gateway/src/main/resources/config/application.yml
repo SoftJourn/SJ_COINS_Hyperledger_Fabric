@@ -10,19 +10,20 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          secret-key: "EcEATUqDpEcc.EcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEcc"
+          secret-key: ${GATEWAY_JWT_SECRET_KEY:EcEATUqDpEcc.EcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEccEcEATUqDpEcc}
           expiration: 36000
 
 application:
-  ca-name: 'ca.sjfabric.softjourn.if.ua'
-  key-value-store: '/app_data/wallet'
-  admin-username: 'admin'
-  admin-password: 'adminpw'
-  msp-id: 'CoinsMSP'
-  supported-chaincodes: coins
-  default-chaincode: coins
-  certificate-authorities:
-    "[ca.sjfabric.softjourn.if.ua]":
-      url: 'https://ca.sjfabric.softjourn.if.ua:7054'
+  ca-name: ${GATEWAY_CA_NAME}
+  key-value-store: ${GATEWAY_KEY_VALUE_STORE}
+  admin-username: ${GATEWAY_ADMIN_USERNAME}
+  admin-password: ${GATEWAY_ADMIN_PASSWORD}
+  msp-id: ${GATEWAY_MSP_ID}
+  supported-chaincodes: ${GATEWAY_SUPPORTED_CHAINCODES}
+  default-chaincode: ${GATEWAY_DEFAULT_CHAINCODE}
+  certificate-authorities-raw:
+    1:
+      id: ${GATEWAY_CA_NAME}
+      url: "https://${GATEWAY_CA_URL}:${GATEWAY_CA_PORT}"
       tls-cA-certs:
-        - "/app_data/crypto/peerOrganizations/sjfabric.softjourn.if.ua/ca/ca.sjfabric.softjourn.if.ua-cert.pem"
+        - "${GATEWAY_CRYPTO_PATH}${GATEWAY_CA_CERT_PATH}"
