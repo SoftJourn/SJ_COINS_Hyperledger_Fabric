@@ -2,17 +2,13 @@ package com.softjourn.coins.gateway.service;
 
 import com.softjourn.coins.gateway.config.ApplicationConstants;
 import com.softjourn.coins.gateway.config.ApplicationProperties;
-import io.grpc.netty.shaded.io.netty.handler.ssl.util.LazyX509Certificate;
-import java.io.StringWriter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bouncycastle.openssl.jcajce.JcaMiscPEMGenerator;
-import org.bouncycastle.util.io.pem.PemWriter;
+import org.hyperledger.fabric.gateway.Identities;
 import org.hyperledger.fabric.gateway.Identity;
 import org.hyperledger.fabric.gateway.Wallet;
 import org.hyperledger.fabric.gateway.X509Identity;
 import org.hyperledger.fabric.gateway.impl.identity.GatewayUser;
-import org.hyperledger.fabric.gateway.impl.identity.X509IdentityImpl;
 import org.hyperledger.fabric.sdk.Enrollment;
 import org.hyperledger.fabric.sdk.User;
 import org.hyperledger.fabric.sdk.identity.X509Enrollment;
@@ -52,13 +48,11 @@ public class UserService {
             ApplicationConstants.ADMIN_USERNAME);
         throw new IllegalStateException("Admin identity is not X509 identity");
       }
-      X509Identity x509AdminIdentity = (X509Identity) adminIdentity;
 
-      StringWriter pemStringWriter = new StringWriter();
-      new PemWriter(pemStringWriter)
-          .writeObject(new JcaMiscPEMGenerator(x509AdminIdentity.getCertificate(), null));
-      Enrollment adminEnrollment =
-          new X509Enrollment(x509AdminIdentity.getPrivateKey(), pemStringWriter.toString());
+      X509Identity x509AdminIdentity = (X509Identity) adminIdentity;
+      Enrollment adminEnrollment = new X509Enrollment(
+          x509AdminIdentity.getPrivateKey(),
+          Identities.toPemString(x509AdminIdentity.getCertificate()));
 
       RegistrationRequest regRequest =
           new RegistrationRequest(username, ApplicationConstants.USER_AFFILIATION);
@@ -68,17 +62,14 @@ public class UserService {
       String secret = caClient.register(regRequest, registrar);
       Enrollment enrollment = caClient.enroll(username, secret);
 
-      identity = new X509IdentityImpl(
-          applicationProperties.getMspId(),
-          new LazyX509Certificate(enrollment.getCert().getBytes()),
-          enrollment.getKey()
-      );
+      identity = Identities.newX509Identity(applicationProperties.getMspId(), enrollment);
       wallet.put(username, identity);
+
+      log.info(
+          "Successfully registered and enrolled user '{}' and imported it into the wallet",
+          username);
     } catch (Exception exception) {
       throw new RuntimeException(exception);
     }
-
-    log.info(
-        "Successfully registered and enrolled user '{}' and imported it into the wallet", username);
   }
 }

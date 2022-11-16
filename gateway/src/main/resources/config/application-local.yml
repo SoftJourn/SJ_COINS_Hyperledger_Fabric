@@ -1,0 +1,13 @@
+application:
+  ca-name: 'ca.sjfabric.softjourn.if.ua'
+  key-value-store: '/Users/vlad/Job/Coins/hyperledger-fabric-test/runtime/node_client/wallet'
+  admin-username: 'admin'
+  admin-password: 'adminpw'
+  msp-id: 'CoinsMSP'
+  supported-chaincodes: coins
+  default-chaincode: coins
+  certificate-authorities:
+    "[ca.sjfabric.softjourn.if.ua]":
+      url: 'https://localhost:7054'
+      tls-cA-certs:
+        - "/Users/vlad/Job/Coins/hyperledger-fabric-test/configurations/peerOrganizations/sjfabric.softjourn.if.ua/ca/ca.sjfabric.softjourn.if.ua-cert.pem"

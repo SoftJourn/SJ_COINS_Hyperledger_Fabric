@@ -1,13 +1,13 @@
 package com.softjourn.coins.gateway.service;
 
 import com.softjourn.coins.gateway.config.ApplicationProperties;
-import io.grpc.netty.shaded.io.netty.handler.ssl.util.LazyX509Certificate;
 import java.io.IOException;
+import java.security.cert.CertificateException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hyperledger.fabric.gateway.Identities;
 import org.hyperledger.fabric.gateway.Identity;
 import org.hyperledger.fabric.gateway.Wallet;
-import org.hyperledger.fabric.gateway.impl.identity.X509IdentityImpl;
 import org.hyperledger.fabric.sdk.Enrollment;
 import org.hyperledger.fabric_ca.sdk.HFCAClient;
 import org.hyperledger.fabric_ca.sdk.exception.EnrollmentException;
@@ -37,13 +37,9 @@ public class AdminService {
       Enrollment enrollment = caClient.enroll(
           applicationProperties.getAdminUsername(), applicationProperties.getAdminPassword());
 
-      identity = new X509IdentityImpl(
-          applicationProperties.getMspId(),
-          new LazyX509Certificate(enrollment.getCert().getBytes()),
-          enrollment.getKey()
-      );
+      identity = Identities.newX509Identity(applicationProperties.getMspId(), enrollment);
       wallet.put(ADMIN_NAME, identity);
-    } catch (InvalidArgumentException | IOException e) {
+    } catch (InvalidArgumentException | IOException | CertificateException e) {
       throw new RuntimeException(e);
     }
 
