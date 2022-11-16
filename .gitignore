@@ -51,3 +51,5 @@ Thumbs.db
 /scripts/coins.tar.gz
 /coin-app/node_modules
 /configurations
+runtime
+

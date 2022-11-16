@@ -2,6 +2,9 @@
 
 export FABRIC_CFG_PATH=${PWD}/../config/
 export CHANNEL_NAME=mychannel
+export ORGANISATION_NAME="CoinsOrg"
+export ORDERER_ADDRESS="localhost:7050"
+export ORDERER_HOSTNAME="orderer.sjfabric.softjourn.if.ua"
 
 # Export Hyperledger-specific env variables. NOTE: they override values from ../config/core.yaml so it is okay
 export CORE_PEER_LOCALMSPID="CoinsMSP"
@@ -21,16 +24,16 @@ echo "[${CHANNEL_NAME}] Create channel configuration transaction"
 
 # Create anchor peer update transaction
 echo "[${CHANNEL_NAME}] Create anchor peer update transaction"
-../bin/configtxgen -profile SingleOrgChannel -outputAnchorPeersUpdate ${PWD}/../configurations/channel-artifacts/CoinsOrgAnchor.tx -channelID ${CHANNEL_NAME} -asOrg CoinsOrg
+../bin/configtxgen -profile SingleOrgChannel -outputAnchorPeersUpdate ${PWD}/../configurations/channel-artifacts/CoinsOrgAnchor.tx -channelID ${CHANNEL_NAME} -asOrg ${ORGANISATION_NAME}
 
 # Create channel
 echo "[${CHANNEL_NAME}] Create channel"
-../bin/peer channel create -o localhost:7050 -c ${CHANNEL_NAME} --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua -f ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.tx --outputBlock ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.block --tls --cafile ${ORDERER_CA}
+../bin/peer channel create -o ${ORDERER_ADDRESS} -c ${CHANNEL_NAME} --ordererTLSHostnameOverride ${ORDERER_HOSTNAME} -f ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.tx --outputBlock ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.block --tls --cafile ${ORDERER_CA}
 
 # Join channel
 echo "[${CHANNEL_NAME}] Join channel"
-../bin/peer channel join -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua -b ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.block --tls --cafile ${ORDERER_CA}
+../bin/peer channel join -o ${ORDERER_ADDRESS} --ordererTLSHostnameOverride ${ORDERER_HOSTNAME} -b ${PWD}/../configurations/channel-artifacts/${CHANNEL_NAME}.block --tls --cafile ${ORDERER_CA}
 
 # Update anchor peer (optional as channel created in this org)
 echo "[${CHANNEL_NAME}] Update anchor peer (optional as channel created in this org)"
-../bin/peer channel update -o localhost:7050 --ordererTLSHostnameOverride orderer.sjfabric.softjourn.if.ua -c ${CHANNEL_NAME} -f ../configurations/channel-artifacts/CoinsOrgAnchor.tx --tls --cafile ${ORDERER_CA}
+../bin/peer channel update -o ${ORDERER_ADDRESS} --ordererTLSHostnameOverride ${ORDERER_HOSTNAME} -c ${CHANNEL_NAME} -f ../configurations/channel-artifacts/CoinsOrgAnchor.tx --tls --cafile ${ORDERER_CA}

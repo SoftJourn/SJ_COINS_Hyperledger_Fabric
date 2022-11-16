@@ -7,22 +7,32 @@ This repo includes:
  * Set of .sh scripts that are used to set up infrastructure.
  * Set of configuration files that are used to set up infrastructure.
 
-### Prerequisites and setup:
+### Prerequisites:
 
  * Install the latest Docker images and Binaries from https://hyperledger-fabric.readthedocs.io/en/latest/install.html
  * Copy Binaries from **bin** folder into current project.
  * Install JDK 11+.
- * Change working directory to 'gateway' - `cd gateway`.
- * Run `./gradlew build` to build and package gateway application to "war".
- * Change working directory to 'scripts' - `cd ../scripts`.
- * Run `./prepareResources.sh` to create all necessary configurations after removing old ones.
  * Edit .env file, set COMPOSE_PROJECT_NAME to match folder name with no space and dashes, like 'coins-sjfabric' to 'coinssjfabric'.
  * Create directory for runtime files and edit .env file, set RUNTIME_ROOT to correct path to the created directory for runtime files, or set it in environment variable.
- * Change working directory to project root - `cd ..`.
- * Run `docker-compose up` to start network.
- * Change working directory to 'scripts' (perhaps in new terminal session) - `cd scripts`.
- * Run `./createChannel.sh` to create new channel called "mychannel".
- * Run `./deployCoinsCC.sh` to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account.
+
+### Setup (semi-automated)
+
+* Change working directory to 'scripts' - `cd scripts`.
+* Run `./build.sh` to build all configs and start docker containers.
+* Run `./createChannel.sh` to create new channel called "mychannel".
+* Run `./deployCoinsCC.sh` to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account.
+
+### Setup (manual)
+
+* Change working directory to 'gateway' - `cd gateway`.
+* Run `./gradlew build` to build and package gateway application to "war".
+* Change working directory to 'scripts' - `cd ../scripts`.
+* Run `./prepareResources.sh` to create all necessary configurations after removing old ones.
+* Change working directory to project root - `cd ..`.
+* Run `docker-compose up` to start network.
+* Change working directory to 'scripts' (perhaps in new terminal session) - `cd scripts`.
+* Run `./createChannel.sh` to create new channel called "mychannel".
+* Run `./deployCoinsCC.sh` to compile, deploy, install and instantiate chaincode. It creates a currency 'SJCoin' with 'sj_coin' as minter, then it mints 10_000_000 SJCoins to sj_coin account.
  
 ### Stop network
  * Press **Ctrl + C** to stop running network containers.

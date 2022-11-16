@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo 'DEPRECATED! This script is deprecated because golang chaincode is not supported anymore.';
+exit;
+
 export FABRIC_CFG_PATH=${PWD}/../config/
 export CHANNEL_NAME=mychannel
 export CHAINCODE_NAME=coins
