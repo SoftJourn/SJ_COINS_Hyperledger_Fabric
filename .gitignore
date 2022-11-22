@@ -52,4 +52,5 @@ Thumbs.db
 /coin-app/node_modules
 /configurations
 runtime
+builders
 

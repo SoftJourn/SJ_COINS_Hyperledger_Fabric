@@ -126,9 +126,7 @@ services:
 
   couchdb.initializer:
     image: curlimages/curl:7.86.0
-    deploy:
-      restart_policy:
-        condition: on-failure
+    restart: on-failure
     depends_on:
       - couchdb0.sjfabric.softjourn.if.ua
     command: [ "sh","-c","sleep 15 && echo '[Initializer] Try to create _users database.' && curl -X PUT -u ${COUCHDB_USER}:${COUCHDB_PASSWORD} couchdb0.sjfabric.softjourn.if.ua:${PORT_COUCH_DB}/_users" ]
